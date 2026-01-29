@@ -31,6 +31,7 @@ O **DW WooCommerce CPF Validator** é um plugin que valida CPF no checkout em 2 
 
 - ✅ **Formato/algoritmo** (client-side e server-side)
 - ✅ **Consulta na Receita Federal via API** (CPF.CNPJ)
+- ✅ **Consulta via CPFHub.io** (opcional)
 
 Além de validar, ele melhora a experiência e evita desperdício de créditos:
 
@@ -47,7 +48,7 @@ Além de validar, ele melhora a experiência e evita desperdício de créditos:
 
 - ✅ Máscara automática no `billing_cpf` (000.000.000-00)
 - ✅ Validação do algoritmo do CPF (antes de consultar a API)
-- ✅ Validação via API CPF.CNPJ (AJAX e server-side)
+- ✅ Validação via API CPF.CNPJ ou CPFHub.io (AJAX e server-side)
 
 ### Economia de créditos
 
@@ -72,7 +73,9 @@ Além de validar, ele melhora a experiência e evita desperdício de créditos:
 - **WordPress:** 5.8 ou superior
 - **WooCommerce:** 5.0 ou superior
 - **PHP:** 7.4 ou superior
-- **Conta na CPF.CNPJ:** `https://www.cpfcnpj.com.br`
+- **Conta na API escolhida:**
+  - CPF.CNPJ: `https://www.cpfcnpj.com.br`
+  - CPFHub: `https://www.cpfhub.io/`
 - **Servidor:** permissão para requisições HTTPS externas
 
 ---
@@ -107,20 +110,32 @@ git clone https://github.com/agenciadw/wc-cpf-validator.git wc-cpf-validator
 
 ## ⚙️ Configuração
 
-### 1. Token da API CPF.CNPJ
+### 1. Credenciais da API (CPF.CNPJ ou CPFHub)
+
+#### Opção A) CPF.CNPJ
 
 1. Crie uma conta em `https://www.cpfcnpj.com.br`
 2. Acesse **Painel de Controle → API → Tokens**
 3. Gere um token
 4. Contrate o pacote desejado
 
+#### Opção B) CPFHub.io
+
+1. Crie uma conta em `https://www.cpfhub.io/`
+2. Gere sua **API Key**
+3. A API usa:
+   - Base URL: `https://api.cpfhub.io/cpf/{cpf}`
+   - Header: `x-api-key: SUA_API_KEY`
+
 ### 2. Configurar no WooCommerce
 
-1. Acesse: `WooCommerce > Configurações > Finalizar compra > Validação CPF`
+1. Acesse: `WooCommerce > Configurações > Avançado > Validação CPF`
 2. Configure:
    - **Habilitar Validação**
+   - **Provedor de API** (CPF.CNPJ ou CPFHub)
    - **Token da API**
-   - **Pacote da API**
+   - **CPFHub API Key**
+   - **Pacote da API** (apenas CPF.CNPJ)
    - **Campo Obrigatório**
    - **Validação em Tempo Real**
    - **Salvar Dados da API** (opcional)
@@ -149,6 +164,7 @@ Referência do FunnelKit sobre compatibilidade com o plugin brasileiro:
 ## 📚 Documentação
 
 - API CPF.CNPJ: `https://www.cpfcnpj.com.br`
+- API CPFHub: `https://www.cpfhub.io/`
 - Plugin brasileiro (campos): `https://wordpress.org/plugins/woocommerce-extra-checkout-fields-for-brazil/`
 - FunnelKit docs (dev): `https://funnelkit.com/docs/checkout-pages/developer-docs/`
 - Repositório: `https://github.com/agenciadw/wc-cpf-validator`
@@ -171,6 +187,11 @@ Não, porque o plugin aplica:
 ### 3. Funciona com FunnelKit?
 
 Sim. Ele foi ajustado para o comportamento do WFACP (re-render do checkout) e para manter o CPF/nome após refreshs.
+
+### 4. Como escolher CPF.CNPJ vs CPFHub?
+
+- **CPF.CNPJ**: usa token + pacote (e pode exibir aviso de saldo).
+- **CPFHub**: usa **API Key** e retorna `data.name` (nome completo) e `birthDate`.
 
 ---
 
