@@ -186,7 +186,7 @@ Para bugs e sugestões:
 
 ### Versão 0.1.0
 
-- ✅ Validação de CPF via API CPF.CNPJ
+- ✅ Validação de CPF via API CPF.CNPJ e CPFHub.io
 - ✅ Compatibilidade com `billing_cpf`
 - ✅ Integração com FunnelKit (WFACP) para evitar “sumir” em re-render
 - ✅ Cache para reduzir consumo de créditos
