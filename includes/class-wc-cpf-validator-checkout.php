@@ -217,11 +217,21 @@ class WC_CPF_Validator_Checkout {
                     if ( isset( $data['nome'] ) ) {
                         update_post_meta( $order_id, '_billing_cpf_nome', sanitize_text_field( $data['nome'] ) );
                     }
+                    // CPFHub uses "data.name"
+                    if ( ! isset( $data['nome'] ) && isset( $data['data']['name'] ) ) {
+                        update_post_meta( $order_id, '_billing_cpf_nome', sanitize_text_field( $data['data']['name'] ) );
+                    }
                     if ( isset( $data['nascimento'] ) ) {
                         update_post_meta( $order_id, '_billing_cpf_nascimento', sanitize_text_field( $data['nascimento'] ) );
                     }
+                    if ( ! isset( $data['nascimento'] ) && isset( $data['data']['birthDate'] ) ) {
+                        update_post_meta( $order_id, '_billing_cpf_nascimento', sanitize_text_field( $data['data']['birthDate'] ) );
+                    }
                     if ( isset( $data['genero'] ) ) {
                         update_post_meta( $order_id, '_billing_cpf_genero', sanitize_text_field( $data['genero'] ) );
+                    }
+                    if ( ! isset( $data['genero'] ) && isset( $data['data']['gender'] ) ) {
+                        update_post_meta( $order_id, '_billing_cpf_genero', sanitize_text_field( $data['data']['gender'] ) );
                     }
                     if ( isset( $data['situacao'] ) ) {
                         update_post_meta( $order_id, '_billing_cpf_situacao', sanitize_text_field( $data['situacao'] ) );
@@ -283,6 +293,12 @@ class WC_CPF_Validator_Checkout {
             return;
         }
 
+        // Cache-bust assets automatically (helps when JS is updated).
+        $js_path  = WC_CPF_VALIDATOR_PLUGIN_DIR . 'assets/js/checkout.js';
+        $css_path = WC_CPF_VALIDATOR_PLUGIN_DIR . 'assets/css/checkout.css';
+        $js_ver   = file_exists( $js_path ) ? (string) filemtime( $js_path ) : WC_CPF_VALIDATOR_VERSION;
+        $css_ver  = file_exists( $css_path ) ? (string) filemtime( $css_path ) : WC_CPF_VALIDATOR_VERSION;
+
         // Enqueue jQuery Mask Plugin
         wp_enqueue_script(
             'jquery-mask',
@@ -296,7 +312,7 @@ class WC_CPF_Validator_Checkout {
             'wc-cpf-validator',
             WC_CPF_VALIDATOR_PLUGIN_URL . 'assets/js/checkout.js',
             array( 'jquery', 'jquery-mask' ),
-            WC_CPF_VALIDATOR_VERSION,
+            $js_ver,
             true
         );
         
@@ -304,7 +320,7 @@ class WC_CPF_Validator_Checkout {
             'wc-cpf-validator',
             WC_CPF_VALIDATOR_PLUGIN_URL . 'assets/css/checkout.css',
             array(),
-            WC_CPF_VALIDATOR_VERSION
+            $css_ver
         );
         
         // Localize script

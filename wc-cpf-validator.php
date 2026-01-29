@@ -27,6 +27,20 @@ define( 'WC_CPF_VALIDATOR_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'WC_CPF_VALIDATOR_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
 
 /**
+ * Declare WooCommerce HPOS compatibility.
+ *
+ * This tells WooCommerce that this plugin is compatible with:
+ * - High-Performance Order Storage (custom order tables)
+ *
+ * Note: this does NOT enable "compatibility mode / synchronization" (that is a WooCommerce setting).
+ */
+add_action( 'before_woocommerce_init', function() {
+    if ( class_exists( \Automattic\WooCommerce\Utilities\FeaturesUtil::class ) ) {
+        \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'custom_order_tables', __FILE__, true );
+    }
+} );
+
+/**
  * Check if WooCommerce is active
  */
 if ( ! in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) ) ) {
@@ -104,7 +118,8 @@ class WC_CPF_Validator {
      * Add settings link to plugins page
      */
     public function plugin_action_links( $links ) {
-        $settings_link = '<a href="' . admin_url( 'admin.php?page=wc-settings&tab=checkout&section=cpf_validator' ) . '">' . __( 'Configurações', 'wc-cpf-validator' ) . '</a>';
+        // Prefer the "advanced" tab (visible in modern WooCommerce).
+        $settings_link = '<a href="' . admin_url( 'admin.php?page=wc-settings&tab=advanced&section=cpf_validator' ) . '">' . __( 'Configurações', 'wc-cpf-validator' ) . '</a>';
         array_unshift( $links, $settings_link );
         return $links;
     }

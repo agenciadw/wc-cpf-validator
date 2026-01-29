@@ -88,7 +88,11 @@ jQuery(document).ready(function($) {
             (apiData.pessoa && apiData.pessoa.nome),
             (apiData.dados && apiData.dados.nome),
             (apiData.result && apiData.result.nome),
-            (apiData.data && apiData.data.nome)
+            // CPFHub returns { success: true, data: { name: "..." } }
+            (apiData.data && apiData.data.name),
+            (apiData.data && apiData.data.nameUpper),
+            (apiData.data && apiData.data.nome),
+            (apiData.data && apiData.data.nomeCompleto)
         ];
         for (var i = 0; i < candidates.length; i++) {
             var v = (candidates[i] || '').toString().trim();

@@ -15,6 +15,11 @@ class WC_CPF_Validator_API {
      * API Base URL
      */
     const API_BASE_URL = 'https://api.cpfcnpj.com.br/';
+
+    /**
+     * CPFHub Base URL
+     */
+    const CPFHUB_BASE_URL = 'https://api.cpfhub.io/cpf/';
     
     /**
      * Test API Token
@@ -104,6 +109,34 @@ class WC_CPF_Validator_API {
         
         return $token;
     }
+
+    /**
+     * Get API provider
+     *
+     * @return string cpfcnpj|cpfhub
+     */
+    private static function get_provider() {
+        $provider = WC_CPF_Validator_Settings::get_option( 'api_provider', 'cpfcnpj' );
+        $provider = is_string( $provider ) ? $provider : 'cpfcnpj';
+        $provider = strtolower( trim( $provider ) );
+        if ( ! in_array( $provider, array( 'cpfcnpj', 'cpfhub' ), true ) ) {
+            $provider = 'cpfcnpj';
+        }
+        return $provider;
+    }
+
+    /**
+     * Get CPFHub API Key
+     */
+    private static function get_cpfhub_api_key() {
+        $key = WC_CPF_Validator_Settings::get_option( 'cpfhub_api_key', '' );
+        $key = is_string( $key ) ? trim( $key ) : '';
+        if ( $key === '' ) {
+            self::log( 'CPFHub API Key não configurada' );
+            return false;
+        }
+        return $key;
+    }
     
     /**
      * Get API package ID
@@ -126,6 +159,12 @@ class WC_CPF_Validator_API {
                 'message' => __( 'CPF inválido. Por favor, verifique o número digitado.', 'wc-cpf-validator' ),
                 'code'    => 'invalid_format'
             );
+        }
+
+        $provider = self::get_provider();
+
+        if ( $provider === 'cpfhub' ) {
+            return self::validate_cpf_cpfhub_api( $cpf_clean );
         }
         
         // Get token
@@ -272,6 +311,120 @@ class WC_CPF_Validator_API {
             return $result;
         }
     }
+
+    /**
+     * Validate CPF with CPFHub API
+     *
+     * @param string $cpf_clean Only digits.
+     */
+    private static function validate_cpf_cpfhub_api( $cpf_clean ) {
+        $api_key = self::get_cpfhub_api_key();
+        if ( ! $api_key ) {
+            return array(
+                'valid'   => false,
+                'message' => __( 'Erro de configuração. Entre em contato com o administrador.', 'wc-cpf-validator' ),
+                'code'    => 'no_api_key'
+            );
+        }
+
+        $cache_key = 'wc_cpf_validator_cpfhub_' . md5( $cpf_clean );
+        if ( isset( self::$runtime_cache[ $cache_key ] ) && is_array( self::$runtime_cache[ $cache_key ] ) ) {
+            return self::$runtime_cache[ $cache_key ];
+        }
+
+        $cached = get_transient( $cache_key );
+        if ( is_array( $cached ) && isset( $cached['success'] ) ) {
+            $result = array();
+            if ( ! empty( $cached['success'] ) ) {
+                $result = array(
+                    'valid'   => true,
+                    'message' => __( 'CPF validado com sucesso.', 'wc-cpf-validator' ),
+                    'data'    => $cached,
+                    'cached'  => true,
+                );
+            } else {
+                $result = array(
+                    'valid'   => false,
+                    'message' => isset( $cached['message'] ) ? (string) $cached['message'] : __( 'Erro ao validar CPF. Tente novamente.', 'wc-cpf-validator' ),
+                    'code'    => isset( $cached['code'] ) ? (string) $cached['code'] : 'cpfhub_error',
+                    'data'    => $cached,
+                    'cached'  => true,
+                );
+            }
+            self::$runtime_cache[ $cache_key ] = $result;
+            return $result;
+        }
+
+        $url = self::CPFHUB_BASE_URL . $cpf_clean;
+
+        $start = microtime( true );
+        $timeout = (int) apply_filters( 'wc_cpf_validator_api_timeout', 20, $cpf_clean, 'cpfhub', $url );
+        if ( $timeout < 5 ) {
+            $timeout = 5;
+        } elseif ( $timeout > 60 ) {
+            $timeout = 60;
+        }
+
+        $response = wp_remote_get( $url, array(
+            'timeout' => $timeout,
+            'headers' => array(
+                'x-api-key' => $api_key,
+                'Accept'    => 'application/json',
+            ),
+        ) );
+
+        $elapsed_ms = (int) round( ( microtime( true ) - $start ) * 1000 );
+
+        if ( is_wp_error( $response ) ) {
+            self::log( sprintf( 'CPFHub erro (%dms): %s', $elapsed_ms, $response->get_error_message() ) );
+            return array(
+                'valid'   => false,
+                'message' => __( 'Erro ao validar CPF. Tente novamente.', 'wc-cpf-validator' ),
+                'code'    => 'request_error'
+            );
+        }
+
+        $body = wp_remote_retrieve_body( $response );
+        $data = json_decode( $body, true );
+
+        $success = is_array( $data ) && ! empty( $data['success'] );
+        self::log( sprintf( 'CPFHub (%dms) success=%s', $elapsed_ms, $success ? 'true' : 'false' ) );
+
+        // Cache: long for success, short for errors.
+        if ( is_array( $data ) ) {
+            $default_ttl = $success ? 30 * DAY_IN_SECONDS : DAY_IN_SECONDS;
+            $ttl = (int) apply_filters( 'wc_cpf_validator_cache_ttl', $default_ttl, $cpf_clean, 'cpfhub', $data );
+            if ( $ttl > 0 ) {
+                set_transient( $cache_key, $data, $ttl );
+            }
+        }
+
+        if ( $success ) {
+            $result = array(
+                'valid'   => true,
+                'message' => __( 'CPF validado com sucesso.', 'wc-cpf-validator' ),
+                'data'    => $data
+            );
+            self::$runtime_cache[ $cache_key ] = $result;
+            return $result;
+        }
+
+        $message = __( 'Erro ao validar CPF. Tente novamente.', 'wc-cpf-validator' );
+        if ( is_array( $data ) ) {
+            if ( isset( $data['message'] ) ) {
+                $message = (string) $data['message'];
+            }
+        }
+
+        $result = array(
+            'valid'   => false,
+            'message' => $message,
+            'code'    => 'cpfhub_error',
+            'data'    => is_array( $data ) ? $data : array(),
+        );
+        self::$runtime_cache[ $cache_key ] = $result;
+        return $result;
+    }
     
     /**
      * Get user-friendly error message
@@ -311,6 +464,9 @@ class WC_CPF_Validator_API {
      * Check API balance
      */
     public static function check_balance() {
+        if ( self::get_provider() === 'cpfhub' ) {
+            return false;
+        }
         $token = self::get_token();
         if ( ! $token ) {
             return false;

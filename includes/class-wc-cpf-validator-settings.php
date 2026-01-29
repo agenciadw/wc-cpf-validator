@@ -21,8 +21,14 @@ class WC_CPF_Validator_Settings {
     }
     
     private function __construct() {
+        // Register settings section in both tabs:
+        // - checkout (legacy / direct URL)
+        // - advanced (visible in current WooCommerce UI)
         add_filter( 'woocommerce_get_sections_checkout', array( $this, 'add_section' ) );
         add_filter( 'woocommerce_get_settings_checkout', array( $this, 'add_settings' ), 10, 2 );
+
+        add_filter( 'woocommerce_get_sections_advanced', array( $this, 'add_section' ) );
+        add_filter( 'woocommerce_get_settings_advanced', array( $this, 'add_settings' ), 10, 2 );
     }
     
     /**
@@ -45,7 +51,7 @@ class WC_CPF_Validator_Settings {
             array(
                 'title' => __( 'Configurações de Validação de CPF', 'wc-cpf-validator' ),
                 'type'  => 'title',
-                'desc'  => __( 'Configure a integração com a API CPF.CNPJ para validação de CPF no checkout.', 'wc-cpf-validator' ),
+                'desc'  => __( 'Configure a integração com uma API de consulta de CPF para validação no checkout.', 'wc-cpf-validator' ),
                 'id'    => 'wc_cpf_validator_settings'
             ),
             array(
@@ -56,6 +62,17 @@ class WC_CPF_Validator_Settings {
                 'type'    => 'checkbox'
             ),
             array(
+                'title'   => __( 'Provedor de API', 'wc-cpf-validator' ),
+                'desc'    => __( 'Escolha qual serviço será usado para consultar/validar o CPF.', 'wc-cpf-validator' ),
+                'id'      => 'wc_cpf_validator_api_provider',
+                'type'    => 'select',
+                'default' => 'cpfcnpj',
+                'options' => array(
+                    'cpfcnpj' => __( 'CPF.CNPJ (cpfcnpj.com.br)', 'wc-cpf-validator' ),
+                    'cpfhub'  => __( 'CPFHub (cpfhub.io)', 'wc-cpf-validator' ),
+                ),
+            ),
+            array(
                 'title'   => __( 'Token da API', 'wc-cpf-validator' ),
                 'desc'    => sprintf( 
                     __( 'Insira seu token da API CPF.CNPJ. Obtenha em %s', 'wc-cpf-validator' ),
@@ -63,6 +80,17 @@ class WC_CPF_Validator_Settings {
                 ),
                 'id'      => 'wc_cpf_validator_api_token',
                 'type'    => 'text',
+                'default' => '',
+                'css'     => 'width: 400px;'
+            ),
+            array(
+                'title'   => __( 'CPFHub API Key', 'wc-cpf-validator' ),
+                'desc'    => sprintf(
+                    __( 'Insira sua API Key da CPFHub. Documentação em %s', 'wc-cpf-validator' ),
+                    '<a href="https://www.cpfhub.io/" target="_blank">https://www.cpfhub.io/</a>'
+                ),
+                'id'      => 'wc_cpf_validator_cpfhub_api_key',
+                'type'    => 'password',
                 'default' => '',
                 'css'     => 'width: 400px;'
             ),

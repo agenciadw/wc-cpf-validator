@@ -44,10 +44,21 @@ class WC_CPF_Validator_Admin {
         
         // Check if plugin is enabled but token is not set
         if ( WC_CPF_Validator_Settings::get_option( 'enabled' ) === 'yes' ) {
+            $provider = WC_CPF_Validator_Settings::get_option( 'api_provider', 'cpfcnpj' );
             $token = WC_CPF_Validator_Settings::get_option( 'api_token' );
+            $cpfhub_key = WC_CPF_Validator_Settings::get_option( 'cpfhub_api_key' );
             $test_mode = WC_CPF_Validator_Settings::get_option( 'test_mode' ) === 'yes';
             
-            if ( empty( $token ) && ! $test_mode ) {
+            $missing_credentials = false;
+            if ( $test_mode ) {
+                $missing_credentials = false;
+            } elseif ( $provider === 'cpfhub' ) {
+                $missing_credentials = empty( $cpfhub_key );
+            } else {
+                $missing_credentials = empty( $token );
+            }
+
+            if ( $missing_credentials ) {
                 ?>
                 <div class="notice notice-warning is-dismissible">
                     <p>
@@ -56,7 +67,7 @@ class WC_CPF_Validator_Admin {
                         printf(
                             /* translators: %s: settings page URL */
                             esc_html__( 'O plugin está ativo mas o token da API não foi configurado. %s', 'wc-cpf-validator' ),
-                            '<a href="' . esc_url( admin_url( 'admin.php?page=wc-settings&tab=checkout&section=cpf_validator' ) ) . '">' . esc_html__( 'Configure agora', 'wc-cpf-validator' ) . '</a>'
+                            '<a href="' . esc_url( admin_url( 'admin.php?page=wc-settings&tab=advanced&section=cpf_validator' ) ) . '">' . esc_html__( 'Configure agora', 'wc-cpf-validator' ) . '</a>'
                         );
                         ?>
                     </p>
@@ -66,7 +77,7 @@ class WC_CPF_Validator_Admin {
             
             // Check API balance (only on settings page)
             if ( isset( $_GET['section'] ) && $_GET['section'] === 'cpf_validator' ) {
-                if ( ! $test_mode && ! empty( $token ) ) {
+                if ( $provider === 'cpfcnpj' && ! $test_mode && ! empty( $token ) ) {
                     $balance = WC_CPF_Validator_API::check_balance();
                     
                     if ( $balance !== false ) {
