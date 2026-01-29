@@ -2,7 +2,7 @@
 
 Plugin WordPress/WooCommerce para validação de CPF no checkout usando a API CPF.CNPJ, com foco em compatibilidade com **Brazilian Market on WooCommerce** e **FunnelKit Checkout (WFACP)**.
 
-![Version](https://img.shields.io/badge/version-1.0.1-blue.svg)
+![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)
 ![WordPress](https://img.shields.io/badge/WordPress-5.8%2B-blue.svg)
 ![WooCommerce](https://img.shields.io/badge/WooCommerce-5.0%2B-purple.svg)
 ![PHP](https://img.shields.io/badge/PHP-7.4%2B-777BB4.svg)
@@ -184,7 +184,7 @@ Para bugs e sugestões:
 
 ## 📝 Changelog
 
-### Versão 1.0.0
+### Versão 0.1.0
 
 - ✅ Validação de CPF via API CPF.CNPJ
 - ✅ Compatibilidade com `billing_cpf`
@@ -217,6 +217,6 @@ GPL v2 ou posterior.
 
 ---
 
-**Versão:** 1.0.1  
+**Versão:** 0.1.0  
 **Autor:** David William da Costa - DW Digital  
 **Requer:** WordPress 5.8+, WooCommerce 5.0+, PHP 7.4+

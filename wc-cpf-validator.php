@@ -3,7 +3,7 @@
  * Plugin Name: DW WooCommerce CPF Validator
  * Plugin URI: https://github.com/agenciadw/wc-cpf-validator
  * Description: Plugin para validação de CPF no checkout do WooCommerce usando a API CPF.CNPJ
- * Version: 1.0.1
+ * Version: 0.1.0
  * Author: David William da Costa
  * Author URI: https://github.com/agenciadw/
  * License: GPL v2 or later
@@ -21,7 +21,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define plugin constants
-define( 'WC_CPF_VALIDATOR_VERSION', '1.0.1' );
+define( 'WC_CPF_VALIDATOR_VERSION', '0.1.0' );
 define( 'WC_CPF_VALIDATOR_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WC_CPF_VALIDATOR_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'WC_CPF_VALIDATOR_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );

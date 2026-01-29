@@ -4,6 +4,7 @@ jQuery(document).ready(function($) {
     // Real-time validation flag
     var isValidating = false;
     var validationTimeout = null;
+    var activeAjax = null;
     var lastValidatedCpf = null; // only digits
     var lastValidationSuccess = null; // boolean
     var lastValidatedCpfMasked = null; // formatted
@@ -245,15 +246,20 @@ jQuery(document).ready(function($) {
         }
 
         // Prevent multiple simultaneous validations
-        if (isValidating) {
-            return;
-        }
+        if (isValidating) return;
 
         isValidating = true;
         showMessage($message, wcCpfValidator.validating, 'info');
 
         // Make AJAX request
-        $.ajax({
+        // Abort any pending request (only affects UX; backend cache protects credits).
+        try {
+            if (activeAjax && activeAjax.readyState !== 4) {
+                activeAjax.abort();
+            }
+        } catch (e) {}
+
+        activeAjax = $.ajax({
             url: wcCpfValidator.ajax_url,
             type: 'POST',
             data: {
@@ -483,10 +489,17 @@ jQuery(document).ready(function($) {
 
             // Real-time mode: debounce on input
             if (wcCpfValidator.realtime) {
+                // If user just completed 11 digits, validate immediately (faster UX).
+                if (e.type === 'input' && clean.length === 11) {
+                    validateCPF($row, $message, cpf);
+                    return;
+                }
+
                 if (e.type === 'input') {
+                    // shorter debounce for better perceived speed
                     validationTimeout = setTimeout(function() {
                         validateCPF($row, $message, cpf);
-                    }, 1000);
+                    }, 300);
                     return;
                 }
                 // On blur/change, validate immediately (otherwise leaving field cancels debounce).
