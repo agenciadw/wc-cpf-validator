@@ -1,0 +1,158 @@
+# Translation for WooCommerce CPF Validator
+# Copyright (C) 2025
+# This file is distributed under the same license as the plugin.
+
+msgid ""
+msgstr ""
+"Project-Id-Version: WooCommerce CPF Validator 1.0.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-01-27 12:00:00+0000\n"
+"PO-Revision-Date: 2025-01-27 12:00:00+0000\n"
+"Last-Translator: \n"
+"Language-Team: Portuguese (Brazil)\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+msgid "WooCommerce CPF Validator requires WooCommerce to be installed and active."
+msgstr "WooCommerce CPF Validator requer que o WooCommerce esteja instalado e ativo."
+
+msgid "Settings"
+msgstr "Configurações"
+
+msgid "CPF Validation Settings"
+msgstr "Configurações de Validação de CPF"
+
+msgid "Configure the integration with CPF.CNPJ API for CPF validation at checkout."
+msgstr "Configure a integração com a API CPF.CNPJ para validação de CPF no checkout."
+
+msgid "Enable Validation"
+msgstr "Habilitar Validação"
+
+msgid "Enable CPF validation at checkout"
+msgstr "Habilitar validação de CPF no checkout"
+
+msgid "API Token"
+msgstr "Token da API"
+
+msgid "Insert your CPF.CNPJ API token. Get it at %s"
+msgstr "Insira seu token da API CPF.CNPJ. Obtenha em %s"
+
+msgid "API Package"
+msgstr "Pacote da API"
+
+msgid "Select the CPF package you have contracted"
+msgstr "Selecione o pacote de CPF que você contratou"
+
+msgid "Required Field"
+msgstr "Campo Obrigatório"
+
+msgid "Make CPF field required at checkout"
+msgstr "Tornar o campo CPF obrigatório no checkout"
+
+msgid "Real-time Validation"
+msgstr "Validação em Tempo Real"
+
+msgid "Validate CPF with API in real-time (while typing). If disabled, validates only when submitting the order."
+msgstr "Validar CPF com a API em tempo real (ao digitar). Se desabilitado, valida apenas ao enviar o pedido."
+
+msgid "Save API Data"
+msgstr "Salvar Dados da API"
+
+msgid "Save data returned by API in order metadata (name, birth date, etc)"
+msgstr "Salvar dados retornados pela API nos metadados do pedido (nome, data nascimento, etc)"
+
+msgid "Field Position"
+msgstr "Posição do Campo"
+
+msgid "Choose where the CPF field should appear in the checkout form"
+msgstr "Escolha onde o campo CPF deve aparecer no formulário de checkout"
+
+msgid "Field Label"
+msgstr "Rótulo do Campo"
+
+msgid "Text that appears above the CPF field"
+msgstr "Texto que aparece acima do campo CPF"
+
+msgid "Field Placeholder"
+msgstr "Placeholder do Campo"
+
+msgid "Example text inside the CPF field"
+msgstr "Texto de exemplo dentro do campo CPF"
+
+msgid "Test Mode"
+msgstr "Modo de Teste"
+
+msgid "Use API test token (returns fictitious data)"
+msgstr "Usar token de teste da API (retorna dados fictícios)"
+
+msgid "Error Logging"
+msgstr "Log de Erros"
+
+msgid "Log API errors in WooCommerce log"
+msgstr "Registrar erros de API no log do WooCommerce"
+
+msgid "CPF is a required field."
+msgstr "CPF é um campo obrigatório."
+
+msgid "Invalid CPF. Please check the number entered."
+msgstr "CPF inválido. Por favor, verifique o número digitado."
+
+msgid "Configuration error. Please contact the administrator."
+msgstr "Erro de configuração. Entre em contato com o administrador."
+
+msgid "Error validating CPF. Please try again."
+msgstr "Erro ao validar CPF. Tente novamente."
+
+msgid "CPF validated successfully."
+msgstr "CPF validado com sucesso."
+
+msgid "CPF not informed."
+msgstr "CPF não informado."
+
+msgid "CPF:"
+msgstr "CPF:"
+
+msgid "Name (CPF):"
+msgstr "Nome (CPF):"
+
+msgid "Birth Date:"
+msgstr "Data de Nascimento:"
+
+msgid "CPF Status:"
+msgstr "Situação CPF:"
+
+msgid "Validating CPF..."
+msgstr "Validando CPF..."
+
+msgid "Valid CPF"
+msgstr "CPF válido"
+
+msgid "Invalid CPF"
+msgstr "CPF inválido"
+
+msgid "WooCommerce CPF Validator:"
+msgstr "WooCommerce CPF Validator:"
+
+msgid "The plugin is active but the API token has not been configured. %s"
+msgstr "O plugin está ativo mas o token da API não foi configurado. %s"
+
+msgid "Configure now"
+msgstr "Configure agora"
+
+msgid "Your credit balance is low: %d queries remaining."
+msgstr "Seu saldo de créditos está baixo: %d consultas restantes."
+
+msgid "Available balance: %d queries."
+msgstr "Saldo disponível: %d consultas."
+
+msgid "API CPF.CNPJ"
+msgstr "API CPF.CNPJ"
+
+msgid "queries remaining"
+msgstr "consultas restantes"
+
+msgid "CPF"
+msgstr "CPF"

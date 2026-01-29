@@ -1,0 +1,43 @@
+# WordPress
+wp-config.php
+.htaccess
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Composer
+vendor/
+composer.lock
+
+# Build files
+*.zip
+dist/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Log files
+*.log
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Translation files (compiled)
+*.mo
+
+# Environment
+.env
+.env.local
