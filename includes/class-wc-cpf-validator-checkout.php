@@ -63,6 +63,7 @@ class WC_CPF_Validator_Checkout {
         $required = WC_CPF_Validator_Settings::get_option( 'required' ) === 'yes';
         $label = WC_CPF_Validator_Settings::get_option( 'field_label', 'CPF' );
         $placeholder = WC_CPF_Validator_Settings::get_option( 'field_placeholder', '000.000.000-00' );
+        $validate_cnpj = WC_CPF_Validator_Settings::get_option( 'validate_cnpj' ) === 'yes';
 
         $position = WC_CPF_Validator_Settings::get_option( 'field_position', 'after_billing_email' );
 
@@ -103,22 +104,74 @@ class WC_CPF_Validator_Checkout {
 
             // Adjust priority so it lands near the configured position.
             $fields['billing']['billing_cpf']['priority'] = $this->calculate_cpf_priority( $fields['billing'], $position );
-
-            return $fields;
         }
 
-        // Otherwise, add the field ourselves.
-        $fields['billing']['billing_cpf'] = array(
-            'type'              => 'text',
-            'label'             => $label,
-            'placeholder'       => $placeholder,
-            'required'          => $required,
-            'class'             => array( 'form-row-wide', 'wc-cpf-validator-input' ),
-            'custom_attributes' => array(
-                'maxlength' => '14',
-            ),
-            'priority'          => $this->calculate_cpf_priority( $fields['billing'], $position ),
-        );
+        if ( ! isset( $fields['billing']['billing_cpf'] ) ) {
+            // Otherwise, add the field ourselves.
+            $fields['billing']['billing_cpf'] = array(
+                'type'              => 'text',
+                'label'             => $label,
+                'placeholder'       => $placeholder,
+                'required'          => $required,
+                'class'             => array( 'form-row-wide', 'wc-cpf-validator-input' ),
+                'custom_attributes' => array(
+                    'maxlength' => '14',
+                ),
+                'priority'          => $this->calculate_cpf_priority( $fields['billing'], $position ),
+            );
+        }
+
+        // CNPJ support (compatibility with Brazilian Market / FunnelKit when billing_cnpj exists)
+        if ( $validate_cnpj ) {
+            $cnpj_label = __( 'CNPJ', 'wc-cpf-validator' );
+            $cnpj_placeholder = '00.000.000/0000-00';
+
+            if ( isset( $fields['billing']['billing_cnpj'] ) && is_array( $fields['billing']['billing_cnpj'] ) ) {
+                if ( empty( $fields['billing']['billing_cnpj']['type'] ) ) {
+                    $fields['billing']['billing_cnpj']['type'] = 'text';
+                }
+                if ( empty( $fields['billing']['billing_cnpj']['label'] ) ) {
+                    $fields['billing']['billing_cnpj']['label'] = $cnpj_label;
+                }
+                if ( empty( $fields['billing']['billing_cnpj']['placeholder'] ) ) {
+                    $fields['billing']['billing_cnpj']['placeholder'] = $cnpj_placeholder;
+                }
+                if ( empty( $fields['billing']['billing_cnpj']['class'] ) || ! is_array( $fields['billing']['billing_cnpj']['class'] ) ) {
+                    $fields['billing']['billing_cnpj']['class'] = array();
+                }
+                foreach ( array( 'form-row-wide', 'wc-cpf-validator-input', 'wc-cpf-validator-cnpj' ) as $needed_class ) {
+                    if ( ! in_array( $needed_class, $fields['billing']['billing_cnpj']['class'], true ) ) {
+                        $fields['billing']['billing_cnpj']['class'][] = $needed_class;
+                    }
+                }
+                if ( empty( $fields['billing']['billing_cnpj']['custom_attributes'] ) || ! is_array( $fields['billing']['billing_cnpj']['custom_attributes'] ) ) {
+                    $fields['billing']['billing_cnpj']['custom_attributes'] = array();
+                }
+                if ( empty( $fields['billing']['billing_cnpj']['custom_attributes']['maxlength'] ) ) {
+                    $fields['billing']['billing_cnpj']['custom_attributes']['maxlength'] = '18';
+                }
+                if ( isset( $fields['billing']['billing_cpf']['priority'] ) ) {
+                    $fields['billing']['billing_cnpj']['priority'] = (int) $fields['billing']['billing_cpf']['priority'] + 1;
+                } elseif ( empty( $fields['billing']['billing_cnpj']['priority'] ) ) {
+                    $fields['billing']['billing_cnpj']['priority'] = $this->calculate_cpf_priority( $fields['billing'], $position ) + 1;
+                }
+            } else {
+                // If the store doesn't provide a CNPJ field, we can add one (only when enabled).
+                $fields['billing']['billing_cnpj'] = array(
+                    'type'              => 'text',
+                    'label'             => $cnpj_label,
+                    'placeholder'       => $cnpj_placeholder,
+                    'required'          => false,
+                    'class'             => array( 'form-row-wide', 'wc-cpf-validator-input', 'wc-cpf-validator-cnpj' ),
+                    'custom_attributes' => array(
+                        'maxlength' => '18',
+                    ),
+                    'priority'          => isset( $fields['billing']['billing_cpf']['priority'] )
+                        ? (int) $fields['billing']['billing_cpf']['priority'] + 1
+                        : $this->calculate_cpf_priority( $fields['billing'], $position ) + 1,
+                );
+            }
+        }
 
         return $fields;
     }
@@ -175,23 +228,28 @@ class WC_CPF_Validator_Checkout {
      */
     public function validate_cpf_field() {
         $cpf = isset( $_POST['billing_cpf'] ) ? sanitize_text_field( $_POST['billing_cpf'] ) : '';
+        $cnpj_enabled = WC_CPF_Validator_Settings::get_option( 'validate_cnpj' ) === 'yes';
+        $cnpj = $cnpj_enabled && isset( $_POST['billing_cnpj'] ) ? sanitize_text_field( $_POST['billing_cnpj'] ) : '';
         
-        // Check if required
-        if ( WC_CPF_Validator_Settings::get_option( 'required' ) === 'yes' && empty( $cpf ) ) {
+        // Check if required (CPF required unless CNPJ is provided).
+        if ( WC_CPF_Validator_Settings::get_option( 'required' ) === 'yes' && empty( $cpf ) && ( ! $cnpj_enabled || empty( $cnpj ) ) ) {
             wc_add_notice( __( 'CPF é um campo obrigatório.', 'wc-cpf-validator' ), 'error' );
-            return;
         }
         
-        // If not required and empty, skip validation
-        if ( empty( $cpf ) ) {
-            return;
+        if ( ! empty( $cpf ) ) {
+            // Validate CPF with API
+            $validation = WC_CPF_Validator_API::validate_cpf_api( $cpf );
+            if ( ! $validation['valid'] ) {
+                wc_add_notice( $validation['message'], 'error' );
+            }
         }
-        
-        // Validate CPF with API
-        $validation = WC_CPF_Validator_API::validate_cpf_api( $cpf );
-        
-        if ( ! $validation['valid'] ) {
-            wc_add_notice( $validation['message'], 'error' );
+
+        // Optional CNPJ validation (when enabled)
+        if ( $cnpj_enabled && ! empty( $cnpj ) ) {
+            $cnpj_validation = WC_CPF_Validator_API::validate_cpf_api( $cnpj );
+            if ( ! $cnpj_validation['valid'] ) {
+                wc_add_notice( $cnpj_validation['message'], 'error' );
+            }
         }
     }
     
@@ -242,6 +300,34 @@ class WC_CPF_Validator_Checkout {
                 }
             }
         }
+
+        // Save CNPJ to order meta (when present)
+        if ( isset( $_POST['billing_cnpj'] ) ) {
+            $cnpj = sanitize_text_field( $_POST['billing_cnpj'] );
+            if ( $cnpj !== '' ) {
+                $cnpj_formatted = WC_CPF_Validator_API::format_cnpj( $cnpj );
+                update_post_meta( $order_id, '_billing_cnpj', $cnpj_formatted );
+
+                if ( WC_CPF_Validator_Settings::get_option( 'save_data' ) === 'yes' ) {
+                    $validation = WC_CPF_Validator_API::validate_cpf_api( $cnpj );
+                    if ( $validation['valid'] && isset( $validation['data'] ) ) {
+                        $data = $validation['data'];
+
+                        if ( isset( $data['razao'] ) ) {
+                            update_post_meta( $order_id, '_billing_cnpj_razao', sanitize_text_field( $data['razao'] ) );
+                        }
+                        if ( isset( $data['fantasia'] ) ) {
+                            update_post_meta( $order_id, '_billing_cnpj_fantasia', sanitize_text_field( $data['fantasia'] ) );
+                        }
+                        if ( isset( $data['situacao'][0]['nome'] ) ) {
+                            update_post_meta( $order_id, '_billing_cnpj_situacao', sanitize_text_field( $data['situacao'][0]['nome'] ) );
+                        }
+
+                        update_post_meta( $order_id, '_billing_cnpj_api_data', wp_json_encode( $data ) );
+                    }
+                }
+            }
+        }
     }
     
     /**
@@ -250,6 +336,7 @@ class WC_CPF_Validator_Checkout {
     public function display_cpf_in_admin_order( $order ) {
         $order_id = $order->get_id();
         $cpf = get_post_meta( $order_id, '_billing_cpf', true );
+        $cnpj = get_post_meta( $order_id, '_billing_cnpj', true );
         
         if ( $cpf ) {
             echo '<p><strong>' . __( 'CPF:', 'wc-cpf-validator' ) . '</strong> ' . esc_html( $cpf ) . '</p>';
@@ -271,6 +358,18 @@ class WC_CPF_Validator_Checkout {
                 echo '<p><strong>' . __( 'Situação CPF:', 'wc-cpf-validator' ) . '</strong> <span class="' . $status_class . '">' . esc_html( $situacao ) . '</span></p>';
             }
         }
+
+        if ( $cnpj ) {
+            echo '<p><strong>' . __( 'CNPJ:', 'wc-cpf-validator' ) . '</strong> ' . esc_html( $cnpj ) . '</p>';
+            $razao = get_post_meta( $order_id, '_billing_cnpj_razao', true );
+            if ( $razao ) {
+                echo '<p><strong>' . __( 'Razão Social (CNPJ):', 'wc-cpf-validator' ) . '</strong> ' . esc_html( $razao ) . '</p>';
+            }
+            $fantasia = get_post_meta( $order_id, '_billing_cnpj_fantasia', true );
+            if ( $fantasia ) {
+                echo '<p><strong>' . __( 'Nome Fantasia (CNPJ):', 'wc-cpf-validator' ) . '</strong> ' . esc_html( $fantasia ) . '</p>';
+            }
+        }
     }
     
     /**
@@ -279,9 +378,13 @@ class WC_CPF_Validator_Checkout {
     public function display_cpf_in_order_details( $order ) {
         $order_id = $order->get_id();
         $cpf = get_post_meta( $order_id, '_billing_cpf', true );
+        $cnpj = get_post_meta( $order_id, '_billing_cnpj', true );
         
         if ( $cpf ) {
             echo '<p><strong>' . __( 'CPF:', 'wc-cpf-validator' ) . '</strong> ' . esc_html( $cpf ) . '</p>';
+        }
+        if ( $cnpj ) {
+            echo '<p><strong>' . __( 'CNPJ:', 'wc-cpf-validator' ) . '</strong> ' . esc_html( $cnpj ) . '</p>';
         }
     }
     
@@ -328,9 +431,13 @@ class WC_CPF_Validator_Checkout {
             'ajax_url'       => admin_url( 'admin-ajax.php' ),
             'nonce'          => wp_create_nonce( 'wc_cpf_validator_nonce' ),
             'realtime'       => WC_CPF_Validator_Settings::get_option( 'realtime' ) === 'yes',
+            'validateCnpj'   => WC_CPF_Validator_Settings::get_option( 'validate_cnpj' ) === 'yes',
             'validating'     => __( 'Validando CPF...', 'wc-cpf-validator' ),
             'valid'          => __( 'CPF válido', 'wc-cpf-validator' ),
             'invalid'        => __( 'CPF inválido', 'wc-cpf-validator' ),
+            'cnpjValidating' => __( 'Validando CNPJ...', 'wc-cpf-validator' ),
+            'cnpjValid'      => __( 'CNPJ válido', 'wc-cpf-validator' ),
+            'cnpjInvalid'    => __( 'CNPJ inválido', 'wc-cpf-validator' ),
             'fieldLabel'     => WC_CPF_Validator_Settings::get_option( 'field_label', 'CPF' ),
             'fieldPlaceholder' => WC_CPF_Validator_Settings::get_option( 'field_placeholder', '000.000.000-00' ),
             'required'       => WC_CPF_Validator_Settings::get_option( 'required' ) === 'yes',
@@ -400,7 +507,7 @@ class WC_CPF_Validator_Checkout {
         
         if ( empty( $cpf ) ) {
             wp_send_json_error( array(
-                'message' => __( 'CPF não informado.', 'wc-cpf-validator' )
+                'message' => __( 'Documento não informado.', 'wc-cpf-validator' )
             ) );
         }
         

@@ -4,14 +4,26 @@ jQuery(document).ready(function($) {
     // Real-time validation flag
     var isValidating = false;
     var validationTimeout = null;
+    var cnpjValidationTimeout = null;
     var activeAjax = null;
     var lastValidatedCpf = null; // only digits
     var lastValidationSuccess = null; // boolean
     var lastValidatedCpfMasked = null; // formatted
+    var cnpjIsValidating = false;
+    var cnpjActiveAjax = null;
+    var lastValidatedCnpj = null; // only digits
+    var lastCnpjValidationSuccess = null; // boolean
+    var lastValidatedCnpjMasked = null; // formatted
 
     var STORAGE_KEY_CPF = 'wcCpfValidator.lastCpfMasked';
     var STORAGE_KEY_CPF_DIGITS = 'wcCpfValidator.lastCpfDigits';
     var STORAGE_KEY_LOCKED = 'wcCpfValidator.locked';
+    var STORAGE_KEY_CNPJ = 'wcCpfValidator.lastCnpjMasked';
+    var STORAGE_KEY_CNPJ_DIGITS = 'wcCpfValidator.lastCnpjDigits';
+    var STORAGE_KEY_CNPJ_LOCKED = 'wcCpfValidator.cnpjLocked';
+    var STORAGE_KEY_COMPANY = 'wcCpfValidator.company';
+    var STORAGE_KEY_COMPANY_LOCKED = 'wcCpfValidator.companyLocked';
+    var STORAGE_KEY_PERSON_TYPE_LOCKED = 'wcCpfValidator.personTypeLocked';
     var STORAGE_KEY_FIRST = 'wcCpfValidator.firstName';
     var STORAGE_KEY_LAST = 'wcCpfValidator.lastName';
 
@@ -20,11 +32,23 @@ jQuery(document).ready(function($) {
             var d = window.sessionStorage.getItem(STORAGE_KEY_CPF_DIGITS);
             var m = window.sessionStorage.getItem(STORAGE_KEY_CPF);
             var l = window.sessionStorage.getItem(STORAGE_KEY_LOCKED);
+            var cd = window.sessionStorage.getItem(STORAGE_KEY_CNPJ_DIGITS);
+            var cm = window.sessionStorage.getItem(STORAGE_KEY_CNPJ);
+            var cl = window.sessionStorage.getItem(STORAGE_KEY_CNPJ_LOCKED);
+            var co = window.sessionStorage.getItem(STORAGE_KEY_COMPANY);
+            var col = window.sessionStorage.getItem(STORAGE_KEY_COMPANY_LOCKED);
+            var pl = window.sessionStorage.getItem(STORAGE_KEY_PERSON_TYPE_LOCKED);
             var fn = window.sessionStorage.getItem(STORAGE_KEY_FIRST);
             var ln = window.sessionStorage.getItem(STORAGE_KEY_LAST);
             if (d) lastValidatedCpf = d;
             if (m) lastValidatedCpfMasked = m;
             if (l === '1') lastValidationSuccess = true;
+            if (cd) lastValidatedCnpj = cd;
+            if (cm) lastValidatedCnpjMasked = cm;
+            if (cl === '1') lastCnpjValidationSuccess = true;
+            if (co) window.wcCpfValidatorCompany = co;
+            if (col === '1') window.wcCpfValidatorCompanyLocked = true;
+            if (pl === '1') window.wcCpfValidatorPersonTypeLocked = true;
             if (fn) window.wcCpfValidatorFirstName = fn;
             if (ln) window.wcCpfValidatorLastName = ln;
         } catch (e) {}
@@ -35,6 +59,14 @@ jQuery(document).ready(function($) {
             if (lastValidatedCpf) window.sessionStorage.setItem(STORAGE_KEY_CPF_DIGITS, lastValidatedCpf);
             if (lastValidatedCpfMasked) window.sessionStorage.setItem(STORAGE_KEY_CPF, lastValidatedCpfMasked);
             window.sessionStorage.setItem(STORAGE_KEY_LOCKED, lastValidationSuccess === true ? '1' : '0');
+            if (lastValidatedCnpj) window.sessionStorage.setItem(STORAGE_KEY_CNPJ_DIGITS, lastValidatedCnpj);
+            if (lastValidatedCnpjMasked) window.sessionStorage.setItem(STORAGE_KEY_CNPJ, lastValidatedCnpjMasked);
+            window.sessionStorage.setItem(STORAGE_KEY_CNPJ_LOCKED, lastCnpjValidationSuccess === true ? '1' : '0');
+            if (window.wcCpfValidatorCompany !== undefined) {
+                window.sessionStorage.setItem(STORAGE_KEY_COMPANY, (window.wcCpfValidatorCompany || '').toString());
+            }
+            window.sessionStorage.setItem(STORAGE_KEY_COMPANY_LOCKED, window.wcCpfValidatorCompanyLocked ? '1' : '0');
+            window.sessionStorage.setItem(STORAGE_KEY_PERSON_TYPE_LOCKED, window.wcCpfValidatorPersonTypeLocked ? '1' : '0');
             if (window.wcCpfValidatorFirstName !== undefined) {
                 window.sessionStorage.setItem(STORAGE_KEY_FIRST, (window.wcCpfValidatorFirstName || '').toString());
             }
@@ -53,6 +85,95 @@ jQuery(document).ready(function($) {
             $first: $('input#billing_first_name, input[name="billing_first_name"]').first(),
             $last: $('input#billing_last_name, input[name="billing_last_name"]').first()
         };
+    }
+
+    function getCompanyInputs() {
+        return $('input#billing_company, input[name="billing_company"]');
+    }
+
+    function getPersonTypeSelect() {
+        return $('select#billing_persontype, select[name="billing_persontype"]').first();
+    }
+
+    function setCompanyReadonly(locked) {
+        var $all = getCompanyInputs();
+        if (!$all.length) return;
+
+        $all.each(function() {
+            var $el = $(this);
+            if ($el.prop('disabled')) return;
+            $el.prop('readonly', !!locked);
+            if (locked) {
+                $el.addClass('wc-cpf-validator-locked');
+            } else {
+                $el.removeClass('wc-cpf-validator-locked');
+            }
+        });
+    }
+
+    function fillCompanyField(company) {
+        company = (company || '').toString().trim().replace(/\s+/g, ' ');
+        var $all = getCompanyInputs();
+        if (!$all.length) return;
+
+        // FunnelKit pode manter múltiplos campos; preenche todos (visíveis e ocultos) para garantir submissão.
+        $all.each(function() {
+            var $el = $(this);
+            if ($el.prop('disabled')) return;
+            $el.val(company).trigger('input').trigger('change').trigger('blur');
+        });
+    }
+
+    function restoreCompanyFieldIfAvailable() {
+        var c = (window.wcCpfValidatorCompany || '').toString();
+        if (!c) return;
+        // Always overwrite (consistent with requested behavior for other fields)
+        fillCompanyField(c);
+    }
+
+    function setupCompanyField() {
+        if (!getCompanyInputs().length) return;
+        if (window.wcCpfValidatorCompany) {
+            restoreCompanyFieldIfAvailable();
+        }
+        // Quando for CNPJ validado, bloqueia edição do billing_company (readonly para ainda enviar no checkout)
+        if (window.wcCpfValidatorCompanyLocked || lastCnpjValidationSuccess === true) {
+            setCompanyReadonly(true);
+        }
+    }
+
+    function shouldLockPersonType() {
+        // Lock as soon as user typed something OR after a successful validation.
+        var cpfDigits = normalizeCpfDigits(getCpfInput().val());
+        var cnpjDigits = normalizeCpfDigits(getCnpjInput().val());
+        if (cpfDigits.length > 0 || cnpjDigits.length > 0) return true;
+        if (lastValidationSuccess === true || lastCnpjValidationSuccess === true) return true;
+        if (window.wcCpfValidatorPersonTypeLocked) return true;
+        return false;
+    }
+
+    function applyPersonTypeLockState(locked) {
+        var $select = getPersonTypeSelect();
+        if (!$select.length) return;
+
+        // IMPORTANT: do NOT set disabled=true (disabled fields are not submitted in HTML forms).
+        if (locked) {
+            $select.attr('data-wc-cpf-validator-locked', '1');
+            $select.attr('aria-disabled', 'true');
+            $select.closest('.form-row, p, div').addClass('wc-cpf-validator-person-type-locked');
+            window.wcCpfValidatorPersonTypeLocked = true;
+        } else {
+            $select.removeAttr('data-wc-cpf-validator-locked');
+            $select.removeAttr('aria-disabled');
+            $select.closest('.form-row, p, div').removeClass('wc-cpf-validator-person-type-locked');
+            window.wcCpfValidatorPersonTypeLocked = false;
+        }
+        persistState();
+    }
+
+    function setupPersonTypeLocking() {
+        var locked = shouldLockPersonType();
+        applyPersonTypeLockState(locked);
     }
 
     function fillNameFields(firstName, lastName) {
@@ -105,6 +226,10 @@ jQuery(document).ready(function($) {
         return $('input#billing_cpf, input[name="billing_cpf"]');
     }
 
+    function getCnpjInputs() {
+        return $('input#billing_cnpj, input[name="billing_cnpj"]');
+    }
+
     function normalizeCpfDigits(value) {
         return (value || '').toString().replace(/[^0-9]/g, '');
     }
@@ -117,6 +242,16 @@ jQuery(document).ready(function($) {
         if ($inputs.length) return $inputs.first();
 
         $inputs = getCpfInputs();
+        return $inputs.first();
+    }
+
+    function getCnpjInput() {
+        var $inputs = getCnpjInputs().filter(':visible').filter(function() {
+            return !$(this).prop('disabled');
+        });
+        if ($inputs.length) return $inputs.first();
+
+        $inputs = getCnpjInputs();
         return $inputs.first();
     }
 
@@ -342,6 +477,99 @@ jQuery(document).ready(function($) {
     }
 
     /**
+     * Validate CNPJ via AJAX
+     */
+    function validateCNPJ($row, $message, cnpj) {
+        var cleanCNPJ = normalizeCpfDigits(cnpj);
+
+        if (cleanCNPJ.length !== 14) {
+            hideMessage($message);
+            return;
+        }
+
+        if (lastValidatedCnpj === cleanCNPJ && lastCnpjValidationSuccess === true) {
+            if ($row.length) {
+                $row.addClass('valid').removeClass('invalid');
+            }
+            return;
+        }
+
+        if (cnpjIsValidating) return;
+
+        cnpjIsValidating = true;
+        showMessage($message, (wcCpfValidator && wcCpfValidator.cnpjValidating) ? wcCpfValidator.cnpjValidating : 'Validando CNPJ...', 'info');
+
+        try {
+            if (cnpjActiveAjax && cnpjActiveAjax.readyState !== 4) {
+                cnpjActiveAjax.abort();
+            }
+        } catch (e) {}
+
+        cnpjActiveAjax = $.ajax({
+            url: wcCpfValidator.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'validate_cpf',
+                cpf: cnpj,
+                nonce: wcCpfValidator.nonce
+            },
+            success: function(response) {
+                cnpjIsValidating = false;
+
+                if (response.success) {
+                    lastValidatedCnpj = cleanCNPJ;
+                    lastCnpjValidationSuccess = true;
+                    lastValidatedCnpjMasked = cnpj;
+                    // Ao validar CNPJ com sucesso, também bloqueia o billing_company (PJ)
+                    window.wcCpfValidatorCompanyLocked = true;
+                    persistState();
+
+                    showMessage($message, response.data.message, 'success');
+                    if ($row.length) $row.addClass('valid').removeClass('invalid');
+
+                    // Auto-fill billing_company with Razão Social when API returns it
+                    try {
+                        var apiData = (response.data && response.data.data) ? response.data.data : {};
+                        var razao = (apiData && apiData.razao) ? apiData.razao : '';
+                        razao = (razao || '').toString().trim().replace(/\s+/g, ' ');
+                        if (razao.length) {
+                            window.wcCpfValidatorCompany = razao;
+                            persistState();
+                            fillCompanyField(razao);
+                        }
+                    } catch (e3) {}
+                    // Bloqueia edição do campo "Empresa" quando for CNPJ
+                    setCompanyReadonly(true);
+
+                    try {
+                        var $cnpjInput = getCnpjInput();
+                        if ($cnpjInput.length) {
+                            $cnpjInput.prop('readonly', true).addClass('wc-cpf-validator-locked');
+                        }
+                    } catch (e2) {}
+                } else {
+                    lastValidatedCnpj = cleanCNPJ;
+                    lastCnpjValidationSuccess = false;
+                    lastValidatedCnpjMasked = null;
+                    persistState();
+
+                    showMessage($message, response.data.message, 'error');
+                    if ($row.length) $row.addClass('invalid').removeClass('valid');
+                }
+            },
+            error: function() {
+                cnpjIsValidating = false;
+                lastValidatedCnpj = cleanCNPJ;
+                lastCnpjValidationSuccess = false;
+                lastValidatedCnpjMasked = null;
+                persistState();
+                showMessage($message, (wcCpfValidator && wcCpfValidator.cnpjInvalid) ? wcCpfValidator.cnpjInvalid : 'CNPJ inválido', 'error');
+                if ($row.length) $row.addClass('invalid').removeClass('valid');
+            }
+        });
+    }
+
+    /**
      * Validate CPF format (client-side)
      */
     function validateCPFFormat(cpf) {
@@ -393,6 +621,46 @@ jQuery(document).ready(function($) {
     }
 
     /**
+     * Validate CNPJ format (client-side)
+     */
+    function validateCNPJFormat(cnpj) {
+        cnpj = (cnpj || '').toString().replace(/[^0-9]/g, '');
+
+        if (cnpj.length !== 14) {
+            return false;
+        }
+
+        if (/^(\d)\1+$/.test(cnpj)) {
+            return false;
+        }
+
+        var weights1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+        var weights2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+
+        var sum = 0;
+        for (var i = 0; i < 12; i++) {
+            sum += parseInt(cnpj.substring(i, i + 1), 10) * weights1[i];
+        }
+        var mod = sum % 11;
+        var d1 = (mod < 2) ? 0 : 11 - mod;
+        if (d1 !== parseInt(cnpj.substring(12, 13), 10)) {
+            return false;
+        }
+
+        sum = 0;
+        for (i = 0; i < 13; i++) {
+            sum += parseInt(cnpj.substring(i, i + 1), 10) * weights2[i];
+        }
+        mod = sum % 11;
+        var d2 = (mod < 2) ? 0 : 11 - mod;
+        if (d2 !== parseInt(cnpj.substring(13, 14), 10)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * Handle CPF input
      */
     function setupCpfField() {
@@ -431,6 +699,43 @@ jQuery(document).ready(function($) {
                 }
                 // Restore name fields too (FunnelKit can wipe them on re-render)
                 restoreNameFieldsIfAvailable();
+            }
+        }
+    }
+
+    /**
+     * Handle CNPJ input (Brazilian Market / FunnelKit)
+     */
+    function setupCnpjField() {
+        if (!(wcCpfValidator && wcCpfValidator.validateCnpj)) return;
+
+        var $cnpjInput = getCnpjInput();
+        if (!$cnpjInput.length) {
+            return;
+        }
+
+        var ui = getCpfRowAndMessage($cnpjInput);
+        var $row = ui.$row;
+        var $message = ui.$message;
+
+        // Apply CNPJ mask once
+        if (!$cnpjInput.data('wcCpfValidatorMasked')) {
+            if ($.fn && $.fn.mask) {
+                $cnpjInput.mask('00.000.000/0000-00');
+            }
+            $cnpjInput.data('wcCpfValidatorMasked', true);
+        }
+
+        var currentClean = normalizeCpfDigits($cnpjInput.val());
+        if (lastValidatedCnpj && lastCnpjValidationSuccess === true) {
+            if (!currentClean.length && lastValidatedCnpjMasked) {
+                $cnpjInput.val(lastValidatedCnpjMasked).trigger('input').trigger('change');
+                currentClean = lastValidatedCnpj;
+            }
+            if (currentClean === lastValidatedCnpj) {
+                $cnpjInput.prop('readonly', true).addClass('wc-cpf-validator-locked');
+                if ($row.length) $row.addClass('valid').removeClass('invalid');
+                restoreCompanyFieldIfAvailable();
             }
         }
     }
@@ -523,16 +828,139 @@ jQuery(document).ready(function($) {
         $(document.body).on('change.wcCpfValidatorCheckout', 'input#billing_cpf, input[name="billing_cpf"]', function() {
             $('body').trigger('update_checkout');
         });
+
+        // CNPJ handlers (only when enabled)
+        if (wcCpfValidator && wcCpfValidator.validateCnpj) {
+            $(document.body).on('input.wcCpfValidatorCnpj blur.wcCpfValidatorCnpj change.wcCpfValidatorCnpj', 'input#billing_cnpj, input[name="billing_cnpj"]', function(e) {
+                var $cnpjInput = $(this);
+                var ui = getCpfRowAndMessage($cnpjInput);
+                var $row = ui.$row;
+                var $message = ui.$message;
+
+                if (!$cnpjInput.data('wcCpfValidatorMasked')) {
+                    if ($.fn && $.fn.mask) {
+                        $cnpjInput.mask('00.000.000/0000-00');
+                    }
+                    $cnpjInput.data('wcCpfValidatorMasked', true);
+                }
+
+                var cnpj = $cnpjInput.val();
+                var clean = normalizeCpfDigits(cnpj);
+
+                if (cnpjValidationTimeout) {
+                    clearTimeout(cnpjValidationTimeout);
+                }
+
+                if ($cnpjInput.prop('readonly')) {
+                    return;
+                }
+
+                if (lastValidatedCnpj && clean && clean !== lastValidatedCnpj) {
+                    lastCnpjValidationSuccess = null;
+                }
+
+                if (e.type === 'input') {
+                    if ($row.length) $row.removeClass('valid invalid');
+                    hideMessage($message);
+                }
+
+                if (!cnpj || cnpj.length === 0) {
+                    return;
+                }
+
+                if (!validateCNPJFormat(cnpj)) {
+                    if (clean.length === 14) {
+                        showMessage($message, (wcCpfValidator && wcCpfValidator.cnpjInvalid) ? wcCpfValidator.cnpjInvalid : 'CNPJ inválido', 'error');
+                        if ($row.length) $row.addClass('invalid');
+                    }
+                    return;
+                }
+
+                if (wcCpfValidator.realtime) {
+                    if (e.type === 'input' && clean.length === 14) {
+                        validateCNPJ($row, $message, cnpj);
+                        return;
+                    }
+
+                    if (e.type === 'input') {
+                        cnpjValidationTimeout = setTimeout(function() {
+                            validateCNPJ($row, $message, cnpj);
+                        }, 300);
+                        return;
+                    }
+
+                    if (e.type === 'blur' || e.type === 'change') {
+                        validateCNPJ($row, $message, cnpj);
+                    }
+                    return;
+                }
+
+                if (e.type === 'blur' || e.type === 'change') {
+                    validateCNPJ($row, $message, cnpj);
+                }
+            });
+
+            $(document.body).on('change.wcCpfValidatorCheckoutCnpj', 'input#billing_cnpj, input[name="billing_cnpj"]', function() {
+                $('body').trigger('update_checkout');
+            });
+        }
+
+        // Person type locking (Select2 + native select)
+        // Prevent opening Select2 dropdown
+        $(document.body).on('select2:opening.wcCpfValidator', 'select#billing_persontype, select[name="billing_persontype"]', function(e) {
+            var $select = $(this);
+            if ($select.attr('data-wc-cpf-validator-locked') === '1') {
+                e.preventDefault();
+                return false;
+            }
+        });
+        // Prevent click/mousedown on Select2 selection UI
+        $(document.body).on('mousedown.wcCpfValidator click.wcCpfValidator keydown.wcCpfValidator', '.select2-selection', function(e) {
+            var $select = getPersonTypeSelect();
+            if ($select.length && $select.attr('data-wc-cpf-validator-locked') === '1') {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                return false;
+            }
+        });
+        // Prevent changes on the native select (fallback)
+        $(document.body).on('change.wcCpfValidator', 'select#billing_persontype, select[name="billing_persontype"]', function(e) {
+            var $select = $(this);
+            if ($select.attr('data-wc-cpf-validator-locked') === '1') {
+                // revert to current value (no-op) and block any handlers downstream
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                return false;
+            }
+        });
     }
 
     // Initial setup + re-setup after checkout fragments update (field may be inserted/removed by other plugins)
     bindDelegatedHandlersOnce();
     setupCpfField();
-    $(document.body).on('updated_checkout.wcCpfValidator', setupCpfField);
-    $(document.body).on('init_checkout.wcCpfValidator', setupCpfField);
+    setupCnpjField();
+    setupCompanyField();
+    setupPersonTypeLocking();
+    $(document.body).on('updated_checkout.wcCpfValidator', function() {
+        setupCpfField();
+        setupCnpjField();
+        setupCompanyField();
+        setupPersonTypeLocking();
+    });
+    $(document.body).on('init_checkout.wcCpfValidator', function() {
+        setupCpfField();
+        setupCnpjField();
+        setupCompanyField();
+        setupPersonTypeLocking();
+    });
 
     // FunnelKit can trigger its own refresh events; listen broadly.
-    $(document.body).on('wfacp_updated_checkout.wcCpfValidator wfacp_step_change.wcCpfValidator wfacp_step_changed.wcCpfValidator', setupCpfField);
+    $(document.body).on('wfacp_updated_checkout.wcCpfValidator wfacp_step_change.wcCpfValidator wfacp_step_changed.wcCpfValidator', function() {
+        setupCpfField();
+        setupCnpjField();
+        setupCompanyField();
+        setupPersonTypeLocking();
+    });
 
     // MutationObserver fallback: if the CPF input appears/replaces, setup again.
     try {
@@ -545,6 +973,18 @@ jQuery(document).ready(function($) {
                         if (!node || !node.querySelector) continue;
                         if (node.querySelector('input#billing_cpf, input[name="billing_cpf"]')) {
                             setupCpfField();
+                            return;
+                        }
+                        if ((wcCpfValidator && wcCpfValidator.validateCnpj) && node.querySelector('input#billing_cnpj, input[name="billing_cnpj"]')) {
+                            setupCnpjField();
+                            return;
+                        }
+                        if (node.querySelector('input#billing_company, input[name="billing_company"]')) {
+                            setupCompanyField();
+                            return;
+                        }
+                        if (node.querySelector('select#billing_persontype, select[name="billing_persontype"]')) {
+                            setupPersonTypeLocking();
                             return;
                         }
                     }

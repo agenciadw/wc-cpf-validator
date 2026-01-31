@@ -62,7 +62,7 @@ class WC_CPF_Validator_Settings {
                 'type'    => 'checkbox'
             ),
             array(
-                'title'   => __( 'Provedor de API', 'wc-cpf-validator' ),
+                'title'   => __( 'Provedor de API (CPF)', 'wc-cpf-validator' ),
                 'desc'    => __( 'Escolha qual serviço será usado para consultar/validar o CPF.', 'wc-cpf-validator' ),
                 'id'      => 'wc_cpf_validator_api_provider',
                 'type'    => 'select',
@@ -70,6 +70,18 @@ class WC_CPF_Validator_Settings {
                 'options' => array(
                     'cpfcnpj' => __( 'CPF.CNPJ (cpfcnpj.com.br)', 'wc-cpf-validator' ),
                     'cpfhub'  => __( 'CPFHub (cpfhub.io)', 'wc-cpf-validator' ),
+                ),
+            ),
+            array(
+                'title'   => __( 'Provedor de API (CNPJ)', 'wc-cpf-validator' ),
+                'desc'    => __( 'Escolha qual serviço será usado para consultar/validar o CNPJ. Observação: no momento, apenas CPF.CNPJ suporta CNPJ.', 'wc-cpf-validator' ),
+                'id'      => 'wc_cpf_validator_cnpj_api_provider',
+                'type'    => 'select',
+                // Default "cpfcnpj" para não quebrar cenários em que CPF usa CPFHub e CNPJ usa CPF.CNPJ
+                'default' => 'cpfcnpj',
+                'options' => array(
+                    'cpfcnpj' => __( 'CPF.CNPJ (cpfcnpj.com.br)', 'wc-cpf-validator' ),
+                    'cpfhub'  => __( 'CPFHub (não suporta CNPJ)', 'wc-cpf-validator' ),
                 ),
             ),
             array(
@@ -95,7 +107,7 @@ class WC_CPF_Validator_Settings {
                 'css'     => 'width: 400px;'
             ),
             array(
-                'title'   => __( 'Pacote da API', 'wc-cpf-validator' ),
+                'title'   => __( 'Pacote CPF (CPF.CNPJ)', 'wc-cpf-validator' ),
                 'desc'    => __( 'Selecione o pacote de CPF que você contratou', 'wc-cpf-validator' ),
                 'id'      => 'wc_cpf_validator_api_package',
                 'type'    => 'select',
@@ -106,8 +118,24 @@ class WC_CPF_Validator_Settings {
                     '2'  => __( 'CPF C - Nome + Data Nascimento + Mãe + Gênero (R$ 0,25)', 'wc-cpf-validator' ),
                     '8'  => __( 'CPF D - Nome + Nome Social + Data + Situação + Óbito + Comprovante (R$ 0,36)', 'wc-cpf-validator' ),
                     '9'  => __( 'CPF E - CPF D + Nome da Mãe + Gênero (R$ 0,47)', 'wc-cpf-validator' ),
+                    '21' => __( 'CPF Lookalike - Nome + E-mails + Telefones + WhatsApp (R$ 0,24)', 'wc-cpf-validator' ),
                     '26' => __( 'CPF D Simplificado - Nome + Data + Situação (R$ 0,33)', 'wc-cpf-validator' ),
                 )
+            ),
+            array(
+                'title'   => __( 'Pacote CNPJ (CPF.CNPJ)', 'wc-cpf-validator' ),
+                'desc'    => __( 'Selecione o pacote de CNPJ que você contratou (usado quando a validação de CNPJ estiver habilitada).', 'wc-cpf-validator' ),
+                'id'      => 'wc_cpf_validator_cnpj_package',
+                'type'    => 'select',
+                'default' => '6',
+                'options' => array(
+                    '4'  => __( 'CNPJ A - Razão Social (R$ 0,13)', 'wc-cpf-validator' ),
+                    '5'  => __( 'CNPJ B - Razão Social + Fantasia + Endereço (R$ 0,24)', 'wc-cpf-validator' ),
+                    '10' => __( 'CNPJ C - Dados + Situação cadastral (R$ 0,32)', 'wc-cpf-validator' ),
+                    '6'  => __( 'CNPJ D - Dados completos + QSA (R$ 0,45)', 'wc-cpf-validator' ),
+                    '11' => __( 'CNPJ F - Simples/SIMEI/Suframa (R$ 0,30)', 'wc-cpf-validator' ),
+                    '19' => __( 'CNPJ Lookalike - E-mails/Telefones/WhatsApp dos sócios (R$ 0,26)', 'wc-cpf-validator' ),
+                ),
             ),
             array(
                 'title'   => __( 'Campo Obrigatório', 'wc-cpf-validator' ),
@@ -128,6 +156,13 @@ class WC_CPF_Validator_Settings {
                 'desc'    => __( 'Salvar dados retornados pela API nos metadados do pedido (nome, data nascimento, etc)', 'wc-cpf-validator' ),
                 'id'      => 'wc_cpf_validator_save_data',
                 'default' => 'yes',
+                'type'    => 'checkbox'
+            ),
+            array(
+                'title'   => __( 'Validar CNPJ (quando existir)', 'wc-cpf-validator' ),
+                'desc'    => __( 'Quando o campo billing_cnpj estiver presente no checkout, validar CNPJ via API (compatível com Brazilian Market e FunnelKit).', 'wc-cpf-validator' ),
+                'id'      => 'wc_cpf_validator_validate_cnpj',
+                'default' => 'no',
                 'type'    => 'checkbox'
             ),
             array(
