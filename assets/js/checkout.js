@@ -933,6 +933,88 @@ jQuery(document).ready(function($) {
                 return false;
             }
         });
+
+        // Block checkout unless CPF or CNPJ is validated (no incomplete or unvalidated numbers).
+        $(document.body).on('checkout_place_order.wcCpfValidator', function() {
+            var r = getDocumentValidationResult();
+            if (!r.ok) {
+                showBlockMessage(r.message);
+                return false;
+            }
+            return true;
+        });
+
+        // FunnelKit: block "Ir para pagamento" / next step until document is validated.
+        // Use capture so we run before FunnelKit's handler.
+        document.body.addEventListener('click', function(e) {
+            var el = e.target;
+            if (!el) return;
+            var target = (el.closest && el.closest('.wfacp_next_page_button, button[data-next-step]')) || $(el).closest('.wfacp_next_page_button, button[data-next-step]')[0];
+            if (!target) return;
+            var r = getDocumentValidationResult();
+            if (!r.ok) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                showBlockMessage(r.message);
+                return false;
+            }
+        }, true);
+    }
+
+    /**
+     * Returns { ok: true } or { ok: false, message: string } for proceeding (next step or place order).
+     */
+    function getDocumentValidationResult() {
+        var cpfVal = getCpfInput().val();
+        var cnpjVal = getCnpjInput().val();
+        var cpfDigits = normalizeCpfDigits(cpfVal);
+        var cnpjDigits = normalizeCpfDigits(cnpjVal);
+        var required = !!(wcCpfValidator && wcCpfValidator.required);
+        var validateCnpj = !!(wcCpfValidator && wcCpfValidator.validateCnpj);
+
+        if (required) {
+            if (cpfDigits.length === 0 && cnpjDigits.length === 0) {
+                return { ok: false, message: 'Informe e valide o CPF ou o CNPJ para finalizar a compra.' };
+            }
+        }
+
+        if (cpfDigits.length > 0 && cpfDigits.length !== 11) {
+            return { ok: false, message: 'Informe um CPF com 11 dígitos e valide antes de finalizar a compra.' };
+        }
+        if (validateCnpj && cnpjDigits.length > 0 && cnpjDigits.length !== 14) {
+            return { ok: false, message: 'Informe um CNPJ com 14 dígitos e valide antes de finalizar a compra.' };
+        }
+
+        if (cpfDigits.length === 11 && lastValidationSuccess !== true) {
+            return { ok: false, message: 'Valide o CPF antes de finalizar a compra.' };
+        }
+        if (validateCnpj && cnpjDigits.length === 14 && lastCnpjValidationSuccess !== true) {
+            return { ok: false, message: 'Valide o CNPJ antes de finalizar a compra.' };
+        }
+
+        if (required) {
+            var hasValidCpf = cpfDigits.length === 11 && lastValidationSuccess === true;
+            var hasValidCnpj = validateCnpj && cnpjDigits.length === 14 && lastCnpjValidationSuccess === true;
+            if (!hasValidCpf && !hasValidCnpj) {
+                return { ok: false, message: 'Informe e valide o CPF ou o CNPJ para finalizar a compra.' };
+            }
+        }
+
+        return { ok: true };
+    }
+
+    function showBlockMessage(msg) {
+        var $notice = $('.wc-cpf-validator-block-notice');
+        if ($notice.length) $notice.remove();
+        $notice = $('<div class="wc-cpf-validator-block-notice woocommerce-error" role="alert">' + msg + '</div>');
+        var $form = $('form.checkout').first();
+        if ($form.length) {
+            $form.prepend($notice);
+            $('html, body').animate({ scrollTop: $notice.offset().top - 80 }, 300);
+        } else {
+            $(document.body).prepend($notice);
+        }
     }
 
     // Initial setup + re-setup after checkout fragments update (field may be inserted/removed by other plugins)

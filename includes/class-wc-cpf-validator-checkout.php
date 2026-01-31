@@ -224,29 +224,46 @@ class WC_CPF_Validator_Checkout {
     }
     
     /**
-     * Validate CPF field
+     * Validate CPF/CNPJ field: only allow checkout with a validated CPF or CNPJ.
+     * Blocks incomplete numbers and any number not validated by the API.
      */
     public function validate_cpf_field() {
-        $cpf = isset( $_POST['billing_cpf'] ) ? sanitize_text_field( $_POST['billing_cpf'] ) : '';
+        $cpf_raw = isset( $_POST['billing_cpf'] ) ? sanitize_text_field( $_POST['billing_cpf'] ) : '';
         $cnpj_enabled = WC_CPF_Validator_Settings::get_option( 'validate_cnpj' ) === 'yes';
-        $cnpj = $cnpj_enabled && isset( $_POST['billing_cnpj'] ) ? sanitize_text_field( $_POST['billing_cnpj'] ) : '';
-        
-        // Check if required (CPF required unless CNPJ is provided).
-        if ( WC_CPF_Validator_Settings::get_option( 'required' ) === 'yes' && empty( $cpf ) && ( ! $cnpj_enabled || empty( $cnpj ) ) ) {
-            wc_add_notice( __( 'CPF é um campo obrigatório.', 'wc-cpf-validator' ), 'error' );
+        $cnpj_raw = $cnpj_enabled && isset( $_POST['billing_cnpj'] ) ? sanitize_text_field( $_POST['billing_cnpj'] ) : '';
+
+        $cpf_digits = preg_replace( '/[^0-9]/', '', $cpf_raw );
+        $cnpj_digits = preg_replace( '/[^0-9]/', '', $cnpj_raw );
+
+        $required = WC_CPF_Validator_Settings::get_option( 'required' ) === 'yes';
+
+        // Require at least one document when field is required.
+        if ( $required && strlen( $cpf_digits ) === 0 && strlen( $cnpj_digits ) === 0 ) {
+            wc_add_notice( __( 'Informe e valide o CPF ou o CNPJ para finalizar a compra.', 'wc-cpf-validator' ), 'error' );
+            return;
         }
-        
-        if ( ! empty( $cpf ) ) {
-            // Validate CPF with API
-            $validation = WC_CPF_Validator_API::validate_cpf_api( $cpf );
+
+        // Block incomplete CPF (any digits but not 11).
+        if ( strlen( $cpf_digits ) > 0 && strlen( $cpf_digits ) !== 11 ) {
+            wc_add_notice( __( 'Informe um CPF com 11 dígitos e valide antes de finalizar a compra.', 'wc-cpf-validator' ), 'error' );
+        }
+
+        // Block incomplete CNPJ (any digits but not 14).
+        if ( $cnpj_enabled && strlen( $cnpj_digits ) > 0 && strlen( $cnpj_digits ) !== 14 ) {
+            wc_add_notice( __( 'Informe um CNPJ com 14 dígitos e valide antes de finalizar a compra.', 'wc-cpf-validator' ), 'error' );
+        }
+
+        // When CPF has 11 digits, it must be validated by API.
+        if ( strlen( $cpf_digits ) === 11 ) {
+            $validation = WC_CPF_Validator_API::validate_cpf_api( $cpf_raw );
             if ( ! $validation['valid'] ) {
                 wc_add_notice( $validation['message'], 'error' );
             }
         }
 
-        // Optional CNPJ validation (when enabled)
-        if ( $cnpj_enabled && ! empty( $cnpj ) ) {
-            $cnpj_validation = WC_CPF_Validator_API::validate_cpf_api( $cnpj );
+        // When CNPJ has 14 digits (and validation enabled), it must be validated by API.
+        if ( $cnpj_enabled && strlen( $cnpj_digits ) === 14 ) {
+            $cnpj_validation = WC_CPF_Validator_API::validate_cpf_api( $cnpj_raw );
             if ( ! $cnpj_validation['valid'] ) {
                 wc_add_notice( $cnpj_validation['message'], 'error' );
             }
