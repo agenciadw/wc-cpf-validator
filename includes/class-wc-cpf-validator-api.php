@@ -10,57 +10,27 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 class WC_CPF_Validator_API {
-    
-    /**
-     * API Base URL
-     */
-    const API_BASE_URL = 'https://api.cpfcnpj.com.br/';
 
-    /**
-     * CPFHub Base URL
-     */
+    const API_BASE_URL    = 'https://api.cpfcnpj.com.br/';
     const CPFHUB_BASE_URL = 'https://api.cpfhub.io/cpf/';
-    
-    /**
-     * Test API Token
-     */
-    const TEST_TOKEN = '5ae973d7a997af13f0aaf2bf60e65803';
+    const TEST_TOKEN      = '5ae973d7a997af13f0aaf2bf60e65803';
 
-    /**
-     * Runtime cache (per request) to avoid duplicate validations.
-     *
-     * @var array<string, array>
-     */
+    /** @var array<string, array> Per-request cache. */
     private static $runtime_cache = array();
 
-    /**
-     * API error codes that should NEVER be cached because they are not CPF-specific
-     * and may change quickly (credits, token/account, rate limit, etc).
-     *
-     * @return string[]
-     */
+    /** Error codes that must not be cached (credits, token, rate limit). */
     private static function get_non_cacheable_error_codes() {
         return array( '1000', '1001', '1002', '1003', '1004', '1007' );
     }
-    
-    /**
-     * Validate CPF format
-     */
+
     public static function validate_cpf_format( $cpf ) {
-        // Remove non-numeric characters
         $cpf = preg_replace( '/[^0-9]/', '', $cpf );
-        
-        // Check if has 11 digits
         if ( strlen( $cpf ) != 11 ) {
             return false;
         }
-        
-        // Check if all digits are the same
         if ( preg_match( '/^(\d)\1+$/', $cpf ) ) {
             return false;
         }
-        
-        // Validate CPF algorithm
         for ( $t = 9; $t < 11; $t++ ) {
             $d = 0;
             for ( $c = 0; $c < $t; $c++ ) {
@@ -75,17 +45,12 @@ class WC_CPF_Validator_API {
         return true;
     }
 
-    /**
-     * Validate CNPJ format
-     */
     public static function validate_cnpj_format( $cnpj ) {
         $cnpj = preg_replace( '/[^0-9]/', '', $cnpj );
 
         if ( strlen( $cnpj ) !== 14 ) {
             return false;
         }
-
-        // Check if all digits are the same
         if ( preg_match( '/^(\d)\1+$/', $cnpj ) ) {
             return false;
         }
@@ -115,40 +80,25 @@ class WC_CPF_Validator_API {
 
         return true;
     }
-    
-    /**
-     * Format CPF
-     */
+
     public static function format_cpf( $cpf ) {
         $cpf = preg_replace( '/[^0-9]/', '', $cpf );
         return preg_replace( '/(\d{3})(\d{3})(\d{3})(\d{2})/', '$1.$2.$3-$4', $cpf );
     }
 
-    /**
-     * Format CNPJ
-     */
     public static function format_cnpj( $cnpj ) {
         $cnpj = preg_replace( '/[^0-9]/', '', $cnpj );
         return preg_replace( '/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/', '$1.$2.$3/$4-$5', $cnpj );
     }
-    
-    /**
-     * Clean CPF (remove formatting)
-     */
+
     public static function clean_cpf( $cpf ) {
         return preg_replace( '/[^0-9]/', '', $cpf );
     }
 
-    /**
-     * Clean document (remove formatting)
-     */
     public static function clean_document( $doc ) {
         return preg_replace( '/[^0-9]/', '', (string) $doc );
     }
-    
-    /**
-     * Get API token
-     */
+
     private static function get_token() {
         $test_mode = WC_CPF_Validator_Settings::get_option( 'test_mode' ) === 'yes';
         
@@ -166,11 +116,6 @@ class WC_CPF_Validator_API {
         return $token;
     }
 
-    /**
-     * Get provider for CPF (backwards compatible with existing setting).
-     *
-     * @return string cpfcnpj|cpfhub
-     */
     private static function get_cpf_provider() {
         $provider = WC_CPF_Validator_Settings::get_option( 'api_provider', 'cpfcnpj' );
         $provider = is_string( $provider ) ? $provider : 'cpfcnpj';
@@ -181,11 +126,6 @@ class WC_CPF_Validator_API {
         return $provider;
     }
 
-    /**
-     * Get provider for CNPJ (new setting, defaults to cpfcnpj).
-     *
-     * @return string cpfcnpj|cpfhub
-     */
     private static function get_cnpj_provider() {
         $provider = WC_CPF_Validator_Settings::get_option( 'cnpj_api_provider', 'cpfcnpj' );
         $provider = is_string( $provider ) ? $provider : 'cpfcnpj';
@@ -196,9 +136,6 @@ class WC_CPF_Validator_API {
         return $provider;
     }
 
-    /**
-     * Get CPFHub API Key
-     */
     private static function get_cpfhub_api_key() {
         $key = WC_CPF_Validator_Settings::get_option( 'cpfhub_api_key', '' );
         $key = is_string( $key ) ? trim( $key ) : '';
@@ -208,28 +145,15 @@ class WC_CPF_Validator_API {
         }
         return $key;
     }
-    
-    /**
-     * Get API package ID
-     */
+
     private static function get_package_id() {
         return WC_CPF_Validator_Settings::get_option( 'api_package', '1' );
     }
 
-    /**
-     * Get CNPJ package ID (CPF.CNPJ only)
-     */
     private static function get_cnpj_package_id() {
         return WC_CPF_Validator_Settings::get_option( 'cnpj_package', '6' );
     }
 
-    /**
-     * Check API balance for a specific package (CPF.CNPJ only).
-     *
-     * @param string $token
-     * @param string|int $package_id
-     * @return int|false
-     */
     private static function check_balance_for_package( $token, $package_id ) {
         $package_id = (string) $package_id;
         if ( $package_id === '' ) {
@@ -254,16 +178,11 @@ class WC_CPF_Validator_API {
 
         return false;
     }
-    
-    /**
-     * Validate document (CPF/CNPJ) with API.
-     */
+
     public static function validate_cpf_api( $cpf ) {
         $doc_clean = self::clean_document( $cpf );
         $doc_type  = ( strlen( $doc_clean ) === 14 ) ? 'cnpj' : 'cpf';
         $doc_label = ( $doc_type === 'cnpj' ) ? 'CNPJ' : 'CPF';
-
-        // Validate format first
         if ( $doc_type === 'cnpj' ) {
             if ( ! self::validate_cnpj_format( $doc_clean ) ) {
                 return array(
@@ -285,7 +204,6 @@ class WC_CPF_Validator_API {
         $provider = ( $doc_type === 'cnpj' ) ? self::get_cnpj_provider() : self::get_cpf_provider();
 
         if ( $provider === 'cpfhub' ) {
-            // CPFHub: only CPF
             if ( $doc_type === 'cnpj' ) {
                 return array(
                     'valid'   => false,
@@ -295,8 +213,6 @@ class WC_CPF_Validator_API {
             }
             return self::validate_cpf_cpfhub_api( $doc_clean );
         }
-        
-        // Get token
         $token = self::get_token();
         if ( ! $token ) {
             return array(
@@ -305,8 +221,6 @@ class WC_CPF_Validator_API {
                 'code'    => 'no_token'
             );
         }
-        
-        // Get package ID
         $package_id = ( $doc_type === 'cnpj' ) ? self::get_cnpj_package_id() : self::get_package_id();
         $package_id = is_string( $package_id ) ? trim( $package_id ) : (string) $package_id;
         if ( $package_id === '' ) {
@@ -316,16 +230,10 @@ class WC_CPF_Validator_API {
                 'code'    => 'no_package'
             );
         }
-
-        // Cache key (type + package + doc). Token is intentionally excluded to maximize reuse.
         $cache_key = 'wc_cpf_validator_' . md5( $provider . '|' . $doc_type . '|' . $package_id . '|' . $doc_clean );
-
-        // Runtime cache (same request)
         if ( isset( self::$runtime_cache[ $cache_key ] ) && is_array( self::$runtime_cache[ $cache_key ] ) ) {
             return self::$runtime_cache[ $cache_key ];
         }
-
-        // Persistent cache (transient) to avoid consuming credits repeatedly.
         $cached = get_transient( $cache_key );
         if ( is_array( $cached ) && isset( $cached['status'] ) ) {
             // Do not trust cached "account/credits" errors. They can be temporary and will block validations.
@@ -354,13 +262,8 @@ class WC_CPF_Validator_API {
             return $result;
             }
         }
-        
-        // Build API URL
         $url = self::API_BASE_URL . $token . '/' . $package_id . '/' . $doc_clean;
-        
-        // Make API request
         $start = microtime( true );
-        // Some packages (e.g. CPF Lookalike) may take longer.
         $default_timeout = ( (string) $package_id === '21' ) ? 60 : 20;
         $timeout = (int) apply_filters( 'wc_cpf_validator_api_timeout', $default_timeout, $doc_clean, $package_id, $url );
         if ( $timeout < 5 ) {
@@ -374,10 +277,8 @@ class WC_CPF_Validator_API {
             'headers' => array(
                 'Content-Type' => 'application/json',
             ),
-        ) );
+        )         );
         $elapsed_ms = (int) round( ( microtime( true ) - $start ) * 1000 );
-        
-        // Check for errors
         if ( is_wp_error( $response ) ) {
             self::log( sprintf( 'Erro na requisição (%dms): %s', $elapsed_ms, $response->get_error_message() ) );
             return array(
@@ -388,15 +289,10 @@ class WC_CPF_Validator_API {
         }
 
         $http_code = (int) wp_remote_retrieve_response_code( $response );
-        
-        // Get response body
         $body = wp_remote_retrieve_body( $response );
         $data = json_decode( $body, true );
 
-        // Handle invalid/non-JSON responses gracefully.
         if ( ! is_array( $data ) ) {
-            // CPF Lookalike and other packages may intermittently return 5xx with empty body.
-            // Try to detect "no credits for selected package" as a more accurate error.
             if ( $http_code >= 500 && ( ! is_string( $body ) || strlen( $body ) === 0 ) ) {
                 $balance = self::check_balance_for_package( $token, $package_id );
                 if ( $balance !== false && $balance <= 0 ) {
@@ -422,8 +318,6 @@ class WC_CPF_Validator_API {
                 'code'    => 'invalid_response'
             );
         }
-        
-        // Lightweight log (avoid logging full payload which can be large/slow)
         $status = isset( $data['status'] ) ? (string) $data['status'] : 'n/a';
         $erro_codigo = isset( $data['erroCodigo'] ) ? (string) $data['erroCodigo'] : '';
         self::log(
@@ -434,18 +328,12 @@ class WC_CPF_Validator_API {
                 $erro_codigo ? ' erroCodigo=' . $erro_codigo : ''
             )
         );
-
-        // Persist cache (defaults to 30 days, filterable).
         if ( is_array( $data ) ) {
             $erro_codigo = isset( $data['erroCodigo'] ) ? (string) $data['erroCodigo'] : '';
             $should_cache = true;
-
-            // Never cache account/credits/rate limit errors.
             if ( $erro_codigo && in_array( $erro_codigo, self::get_non_cacheable_error_codes(), true ) ) {
                 $should_cache = false;
             }
-
-            // Cache TTL: long for success, short for CPF-specific errors.
             if ( $should_cache ) {
                 $default_ttl = ( isset( $data['status'] ) && (int) $data['status'] === 1 )
                     ? 30 * DAY_IN_SECONDS
@@ -457,10 +345,7 @@ class WC_CPF_Validator_API {
                 }
             }
         }
-        
-        // Check API response status
         if ( isset( $data['status'] ) && $data['status'] == 1 ) {
-            // Document is valid
             $result = array(
                 'valid'   => true,
                 'message' => sprintf( __( '%s validado com sucesso.', 'wc-cpf-validator' ), $doc_label ),
@@ -468,26 +353,18 @@ class WC_CPF_Validator_API {
             );
             self::$runtime_cache[ $cache_key ] = $result;
             return $result;
-        } else {
-            // Document is invalid or API error
-            $error_message = self::get_error_message( $data );
-            
-            $result = array(
-                'valid'   => false,
-                'message' => $error_message,
-                'code'    => isset( $data['erroCodigo'] ) ? $data['erroCodigo'] : 'unknown',
-                'data'    => $data
-            );
-            self::$runtime_cache[ $cache_key ] = $result;
-            return $result;
         }
+        $error_message = self::get_error_message( $data );
+        $result = array(
+            'valid'   => false,
+            'message' => $error_message,
+            'code'    => isset( $data['erroCodigo'] ) ? $data['erroCodigo'] : 'unknown',
+            'data'    => $data
+        );
+        self::$runtime_cache[ $cache_key ] = $result;
+        return $result;
     }
 
-    /**
-     * Validate CPF with CPFHub API
-     *
-     * @param string $cpf_clean Only digits.
-     */
     private static function validate_cpf_cpfhub_api( $cpf_clean ) {
         $api_key = self::get_cpfhub_api_key();
         if ( ! $api_key ) {
@@ -560,8 +437,6 @@ class WC_CPF_Validator_API {
 
         $success = is_array( $data ) && ! empty( $data['success'] );
         self::log( sprintf( 'CPFHub (%dms) success=%s', $elapsed_ms, $success ? 'true' : 'false' ) );
-
-        // Cache: long for success, short for errors.
         if ( is_array( $data ) ) {
             $default_ttl = $success ? 30 * DAY_IN_SECONDS : DAY_IN_SECONDS;
             $ttl = (int) apply_filters( 'wc_cpf_validator_cache_ttl', $default_ttl, $cpf_clean, 'cpfhub', $data );
@@ -597,9 +472,6 @@ class WC_CPF_Validator_API {
         return $result;
     }
     
-    /**
-     * Get user-friendly error message
-     */
     private static function get_error_message( $data ) {
         if ( ! isset( $data['erroCodigo'] ) ) {
             return __( 'Erro ao validar CPF. Tente novamente.', 'wc-cpf-validator' );
@@ -624,20 +496,14 @@ class WC_CPF_Validator_API {
         if ( isset( $error_messages[ $error_code ] ) ) {
             return $error_messages[ $error_code ];
         }
-        
-        // Return API error message if available
         if ( isset( $data['erro'] ) ) {
             return $data['erro'];
         }
         
         return __( 'Erro ao validar CPF. Tente novamente.', 'wc-cpf-validator' );
     }
-    
-    /**
-     * Check API balance
-     */
+
     public static function check_balance() {
-        // Balance endpoint exists only for CPF.CNPJ.
         if ( self::get_cpf_provider() === 'cpfhub' ) {
             return false;
         }
@@ -649,10 +515,7 @@ class WC_CPF_Validator_API {
         $package_id = self::get_package_id();
         return self::check_balance_for_package( $token, $package_id );
     }
-    
-    /**
-     * Log messages
-     */
+
     private static function log( $message ) {
         if ( WC_CPF_Validator_Settings::get_option( 'logging' ) !== 'yes' ) {
             return;
@@ -660,5 +523,120 @@ class WC_CPF_Validator_API {
         
         $logger = wc_get_logger();
         $logger->info( $message, array( 'source' => 'wc-cpf-validator' ) );
+    }
+
+    /** Extract email and phone lists from CPF Lookalike API response (package 21). */
+    public static function extract_lookalike_contact_lists( $data ) {
+        $emails = array();
+        $phones = array();
+
+        if ( ! is_array( $data ) ) {
+            return array( 'emails' => $emails, 'phones' => $phones );
+        }
+
+        if ( ! empty( $data['emails'] ) && is_array( $data['emails'] ) ) {
+            foreach ( $data['emails'] as $item ) {
+                $email = null;
+                if ( is_string( $item ) ) {
+                    $email = $item;
+                } elseif ( is_array( $item ) ) {
+                    if ( ! empty( $item['email'] ) ) {
+                        $email = $item['email'];
+                    } elseif ( ! empty( $item['endereco'] ) ) {
+                        $email = $item['endereco'];
+                    }
+                }
+                if ( $email !== null ) {
+                    $email = strtolower( trim( $email ) );
+                    if ( $email !== '' && ! in_array( $email, $emails, true ) ) {
+                        $emails[] = $email;
+                    }
+                }
+            }
+        }
+        $sources = array();
+        if ( ! empty( $data['telefones'] ) && is_array( $data['telefones'] ) ) {
+            $sources = array_merge( $sources, $data['telefones'] );
+        }
+        if ( ! empty( $data['whatsapp'] ) && is_array( $data['whatsapp'] ) ) {
+            $sources = array_merge( $sources, $data['whatsapp'] );
+        }
+        foreach ( $sources as $item ) {
+            $digits = null;
+            if ( is_string( $item ) ) {
+                $digits = preg_replace( '/[^0-9]/', '', $item );
+            } elseif ( is_array( $item ) ) {
+                $ddd = isset( $item['ddd'] ) ? preg_replace( '/[^0-9]/', '', (string) $item['ddd'] ) : '';
+                $num = isset( $item['numero'] ) ? preg_replace( '/[^0-9]/', '', (string) $item['numero'] ) : '';
+                $digits = $ddd . $num;
+            }
+            if ( $digits !== null && strlen( $digits ) >= 10 && ! in_array( $digits, $phones, true ) ) {
+                $phones[] = $digits;
+            }
+        }
+
+        return array( 'emails' => $emails, 'phones' => $phones );
+    }
+
+    public static function store_lookalike_data_for_cpf( $cpf_digits, $api_data ) {
+        $cpf_digits = preg_replace( '/[^0-9]/', '', $cpf_digits );
+        if ( strlen( $cpf_digits ) !== 11 ) {
+            return;
+        }
+        $lists = self::extract_lookalike_contact_lists( $api_data );
+        if ( empty( $lists['emails'] ) && empty( $lists['phones'] ) ) {
+            self::log( 'Lookalike: store sem emails/phones para CPF ' . substr( $cpf_digits, 0, 3 ) . '.***.***-**' );
+            return;
+        }
+        set_transient( 'wc_cpf_validator_lookalike_' . $cpf_digits, $lists, HOUR_IN_SECONDS );
+        self::log( 'Lookalike: dados armazenados para CPF ' . substr( $cpf_digits, 0, 3 ) . '.***.***-** (emails=' . count( $lists['emails'] ) . ', phones=' . count( $lists['phones'] ) . ')' );
+    }
+
+    public static function get_lookalike_data_for_cpf( $cpf_digits ) {
+        $cpf_digits = preg_replace( '/[^0-9]/', '', $cpf_digits );
+        if ( strlen( $cpf_digits ) !== 11 ) {
+            return null;
+        }
+        $cached = get_transient( 'wc_cpf_validator_lookalike_' . $cpf_digits );
+        return is_array( $cached ) ? $cached : null;
+    }
+
+    public static function lookalike_email_matches( $cpf_digits, $email ) {
+        $data = self::get_lookalike_data_for_cpf( $cpf_digits );
+        if ( $data === null || empty( $data['emails'] ) ) {
+            return true;
+        }
+        $email = strtolower( trim( $email ) );
+        if ( $email === '' ) {
+            return false;
+        }
+        return in_array( $email, $data['emails'], true );
+    }
+
+    public static function lookalike_phone_matches( $cpf_digits, $phone ) {
+        $data = self::get_lookalike_data_for_cpf( $cpf_digits );
+        if ( $data === null || empty( $data['phones'] ) ) {
+            return true;
+        }
+        $phone_digits = preg_replace( '/[^0-9]/', '', $phone );
+        if ( strlen( $phone_digits ) < 10 ) {
+            return false;
+        }
+        foreach ( $data['phones'] as $stored ) {
+            $stored = (string) $stored;
+            if ( strlen( $stored ) < 10 ) {
+                continue;
+            }
+            if ( $phone_digits === $stored ) {
+                return true;
+            }
+            if ( substr( $phone_digits, -10 ) === substr( $stored, -10 ) ) {
+                return true;
+            }
+            if ( substr( $stored, -10 ) === substr( $phone_digits, -10 ) ) {
+                return true;
+            }
+        }
+        return false;
     }
 }

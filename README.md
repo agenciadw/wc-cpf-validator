@@ -2,7 +2,7 @@
 
 Plugin WordPress/WooCommerce para validação de CPF no checkout usando a API CPF.CNPJ, com foco em compatibilidade com **Brazilian Market on WooCommerce** e **FunnelKit Checkout (WFACP)**.
 
-![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.1.1-blue.svg)
 ![WordPress](https://img.shields.io/badge/WordPress-5.8%2B-blue.svg)
 ![WooCommerce](https://img.shields.io/badge/WooCommerce-5.0%2B-purple.svg)
 ![PHP](https://img.shields.io/badge/PHP-7.4%2B-777BB4.svg)
@@ -65,6 +65,17 @@ Além de validar, ele melhora a experiência e evita desperdício de créditos:
 
 - 🇧🇷 Compatível com o campo `billing_cpf` do plugin [Brazilian Market on WooCommerce](https://wordpress.org/plugins/woocommerce-extra-checkout-fields-for-brazil/)
 - 🧩 Compatível com FunnelKit Checkout (WFACP)
+
+### Logs do plugin (separado do log do WooCommerce)
+
+- 📋 **Página própria de logs:** `WooCommerce > CPF Validator Logs` — tabela com Data, Nível (Info/Warning/Error) e Mensagem
+- 👤 **O que é registrado:** CPF mascarado, nome (nome e sobrenome), e-mail, telefone, e se os dados foram **válidos** ou não (E-mail válido: Sim/Não, Telefone válido: Sim/Não)
+- 📊 **Cards de resumo:** Total de logs, Info, Warning, Error
+- 🔍 **Filtros:** por nível e busca no texto dos logs
+- 📥 **Exportar CSV:** download em UTF-8 (BOM) com separador `;`, respeitando os filtros atuais
+- 🗑️ **Limpar todos os logs:** botão para esvaziar a tabela (com confirmação)
+- ⏱️ **Deduplicação:** o mesmo evento (ex.: mesma validação em tempo real) não gera entradas duplicadas em 2 minutos
+- ⚙️ **Ativação:** depende da opção **"Log de erros"** em WooCommerce > Configurações > Avançado > Validação CPF
 
 ---
 
@@ -140,6 +151,14 @@ git clone https://github.com/agenciadw/wc-cpf-validator.git wc-cpf-validator
    - **Validação em Tempo Real**
    - **Salvar Dados da API** (opcional)
    - **Posição/Rótulo/Placeholder** (opcional)
+   - **Log de erros:** ativa o registro em **CPF Validator Logs** (tabela própria) e o aviso de saldo na tela de configurações
+
+### 3. Visualizar e exportar logs
+
+1. Acesse: `WooCommerce > CPF Validator Logs`
+2. Use **Filtrar por nível** e **Buscar nos logs** conforme necessário
+3. Clique em **Exportar CSV** para baixar os logs filtrados (UTF-8, Excel)
+4. Use **Limpar todos os logs** para apagar todos os registros (ação irreversível)
 
 ---
 
@@ -205,7 +224,7 @@ Para bugs e sugestões:
 
 ## 📝 Changelog
 
-### Versão 0.1.0
+### Versão 0.1.1
 
 - ✅ Validação de CPF via API CPF.CNPJ e CPFHub.io
 - ✅ Compatibilidade com `billing_cpf`
@@ -213,6 +232,13 @@ Para bugs e sugestões:
 - ✅ Cache para reduzir consumo de créditos
 - ✅ Bloqueio do CPF após validação
 - ✅ Preenchimento de nome/sobrenome quando disponível na resposta
+- ✅ **Logs próprios do plugin** (separado do log do WooCommerce):
+  - Página **WooCommerce > CPF Validator Logs** com tabela, cards (Total, Info, Warning, Error), filtro por nível e busca
+  - Registro de **quem informou o CPF** (nome, sobrenome), **dados preenchidos** (e-mail, telefone) e **resultado** (E-mail válido / Telefone válido: Sim ou Não)
+  - Log tanto em **falha** (e-mail/telefone não vinculados ao CPF) quanto em **sucesso** (e-mail e telefone válidos na validação Lookalike)
+  - Deduplicação para evitar entradas repetidas no mesmo intervalo de 2 minutos
+- ✅ **Exportar logs em CSV** (UTF-8 com BOM, separador `;`), respeitando filtros da página
+- ✅ **Limpar todos os logs** com um clique (e confirmação)
 
 ---
 
@@ -233,11 +259,13 @@ GPL v2 ou posterior.
 
 1. ✅ [Instale o plugin](#-instalação)
 2. ✅ [Configure o token da API](#-configuração)
-3. ✅ Teste no checkout (idealmente com o `billing_cpf`)
-4. ✅ Se usar FunnelKit, garanta que o campo `billing_cpf` esteja nos “Billing Fields”
+3. ✅ Ative **Log de erros** se quiser usar a página de logs e a exportação CSV
+4. ✅ Teste no checkout (idealmente com o `billing_cpf`)
+5. ✅ Se usar FunnelKit, garanta que o campo `billing_cpf` esteja nos “Billing Fields”
 
+6. ✅ Acesse **WooCommerce > CPF Validator Logs** para acompanhar validações e exportar em CSV
 ---
 
-**Versão:** 0.1.0  
+**Versão:** 0.1.1  
 **Autor:** David William da Costa - DW Digital  
 **Requer:** WordPress 5.8+, WooCommerce 5.0+, PHP 7.4+

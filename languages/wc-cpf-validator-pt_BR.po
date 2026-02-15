@@ -4,7 +4,7 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: DW WooCommerce CPF Validator 0.1.0\n"
+"Project-Id-Version: DW WooCommerce CPF Validator 0.1.1\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-01-27 12:00:00+0000\n"
 "PO-Revision-Date: 2025-01-27 12:00:00+0000\n"

@@ -363,6 +363,253 @@ jQuery(document).ready(function($) {
     }
 
     /**
+     * Embaralha um array (Fisher-Yates) e retorna cópia.
+     */
+    function shuffleArray(arr) {
+        var a = (arr && arr.length) ? arr.slice() : [];
+        for (var i = a.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var t = a[i];
+            a[i] = a[j];
+            a[j] = t;
+        }
+        return a;
+    }
+
+    /**
+     * Formatar telefone para exibição (ex: 11999998888 -> (11) 99999-8888)
+     */
+    function formatPhoneForDisplay(str) {
+        var d = (str || '').toString().replace(/[^0-9]/g, '');
+        if (d.length >= 11) {
+            return '(' + d.substring(0, 2) + ') ' + d.substring(2, 7) + '-' + d.substring(7);
+        }
+        if (d.length >= 10) {
+            return '(' + d.substring(0, 2) + ') ' + d.substring(2, 6) + '-' + d.substring(6);
+        }
+        return d || str;
+    }
+
+    /**
+     * Preenche billing_email, billing_phone e billing_cellphone com dados Lookalike
+     * (escolha aleatória entre os e-mails e telefones vinculados ao CPF).
+     */
+    function fillLookalikeIntoFields(emails, phones) {
+        var $email = $('input#billing_email, input[name="billing_email"]').first();
+        var $phone = $('input#billing_phone, input[name="billing_phone"]').first();
+        var $cell = $('input#billing_cellphone, input[name="billing_cellphone"]').first();
+
+        if (emails && emails.length && $email.length) {
+            var shuffledEmails = shuffleArray(emails);
+            $email.val(shuffledEmails[0]).trigger('change');
+        }
+
+        if (phones && phones.length && ($phone.length || $cell.length)) {
+            var shuffledPhones = shuffleArray(phones);
+            var formatted = shuffledPhones.map(function(p) { return formatPhoneForDisplay(p); });
+            var usePhoneFirst = Math.random() < 0.5;
+            if (formatted.length >= 2) {
+                if ($phone.length) $phone.val(usePhoneFirst ? formatted[0] : formatted[1]).trigger('change');
+                if ($cell.length) $cell.val(usePhoneFirst ? formatted[1] : formatted[0]).trigger('change');
+            } else if (formatted.length === 1) {
+                if (usePhoneFirst && $phone.length) $phone.val(formatted[0]).trigger('change');
+                else if ($cell.length) $cell.val(formatted[0]).trigger('change');
+                else if ($phone.length) $phone.val(formatted[0]).trigger('change');
+            }
+        }
+    }
+
+    /** Mostrar mensagem de erro Lookalike sob um campo (billing_email_field, billing_phone_field, billing_cellphone_field). */
+    function setLookalikeFieldError(fieldId, message) {
+        var $row = $('#' + fieldId).first();
+        if (!$row.length) {
+            var name = fieldId.replace(/_field$/, '');
+            $row = $('input[name="' + name + '"]').closest('.form-row, p.form-row, .wfacp-form-control-wrapper').first();
+        }
+        if (!$row.length) $row = $('#' + fieldId).closest('.form-row').addBack().first();
+        var $err = $row.find('.wc-cpf-validator-lookalike-error');
+        if (message) {
+            if (!$err.length) {
+                $err = $('<p class="wc-cpf-validator-lookalike-error woocommerce-invalid"></p>');
+                $row.append($err);
+            }
+            $err.text(message).show();
+            $row.addClass('woocommerce-invalid');
+        } else {
+            $err.remove();
+            $row.removeClass('woocommerce-invalid');
+        }
+    }
+
+    function clearLookalikeFieldError(fieldId) {
+        setLookalikeFieldError(fieldId, '');
+    }
+
+    var lookalikeValidateTimeout = null;
+    var lookalikeEmailAttempts = 0;
+    var lookalikePhoneAttempts = 0;
+    var LOOKALIKE_MAX_ATTEMPTS = 3;
+    var LOOKALIKE_REDIRECT_DELAY_MS = 2500;
+
+    /** Redireciona só após 3 tentativas de e-mail E 3 de telefone (usa valores da resposta atual do backend). */
+    function maybeRedirectToWhatsApp(validatesEmail, validatesPhone) {
+        var url = (wcCpfValidator && wcCpfValidator.lookalike_whatsapp_url) ? wcCpfValidator.lookalike_whatsapp_url : '';
+        var emailDone = validatesEmail !== true || lookalikeEmailAttempts >= LOOKALIKE_MAX_ATTEMPTS;
+        var phoneDone = validatesPhone !== true || lookalikePhoneAttempts >= LOOKALIKE_MAX_ATTEMPTS;
+        if (!url || !emailDone || !phoneDone) return;
+
+        var $overlay = $('.wc-cpf-validator-redirect-overlay');
+        if ($overlay.length) return;
+        $overlay = $('<div class="wc-cpf-validator-redirect-overlay"><div class="wc-cpf-validator-redirect-box"><p class="wc-cpf-validator-redirect-message">Você está sendo redirecionado para falar com nossa equipe.</p><div class="wc-cpf-validator-redirect-spinner"></div></div></div>');
+        $('body').append($overlay);
+
+        setTimeout(function() {
+            window.open(url, '_blank');
+            $overlay.remove();
+        }, LOOKALIKE_REDIRECT_DELAY_MS);
+    }
+
+    /** Validar e-mail e telefone contra dados Lookalike do CPF (AJAX). Só exibe erro quando o usuário preencheu o campo e o valor é inválido (nunca com campo vazio). */
+    function validateLookalikeContact() {
+        if (!lastValidatedCpf || lastValidatedCpf.length !== 11 || lastValidationSuccess !== true) return;
+        var cpfDigits = lastValidatedCpf;
+        var email = ($('input#billing_email, input[name="billing_email"]').first().val() || '').trim();
+        var phone = ($('input#billing_phone, input[name="billing_phone"]').first().val() || '').trim();
+        var cell = ($('input#billing_cellphone, input[name="billing_cellphone"]').first().val() || '').trim();
+
+        if (email === '' && phone === '' && cell === '') {
+            clearLookalikeFieldError('billing_email_field');
+            clearLookalikeFieldError('billing_phone_field');
+            clearLookalikeFieldError('billing_cellphone_field');
+            return;
+        }
+
+        $.ajax({
+            url: wcCpfValidator.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'validate_lookalike_contact',
+                nonce: wcCpfValidator.nonce,
+                cpf: cpfDigits,
+                billing_email: email,
+                billing_phone: phone,
+                billing_cellphone: cell,
+                billing_first_name: ($('input#billing_first_name, input[name="billing_first_name"]').first().val() || '').trim(),
+                billing_last_name: ($('input#billing_last_name, input[name="billing_last_name"]').first().val() || '').trim()
+            },
+            success: function(response) {
+                if (!(response && response.success && response.data)) return;
+                var d = response.data;
+                var curEmail = ($('input#billing_email, input[name="billing_email"]').first().val() || '').trim();
+                var curPhone = ($('input#billing_phone, input[name="billing_phone"]').first().val() || '').trim();
+                var curCell = ($('input#billing_cellphone, input[name="billing_cellphone"]').first().val() || '').trim();
+                var hasPhone = curPhone !== '' || curCell !== '';
+
+                if (d.email_valid) {
+                    lookalikeEmailAttempts = 0;
+                    clearLookalikeFieldError('billing_email_field');
+                } else if (d.message_email && curEmail !== '') {
+                    lookalikeEmailAttempts++;
+                    setLookalikeFieldError('billing_email_field', d.message_email);
+                    maybeRedirectToWhatsApp(d.validates_email, d.validates_phone);
+                } else {
+                    clearLookalikeFieldError('billing_email_field');
+                }
+                if (d.phone_valid) {
+                    lookalikePhoneAttempts = 0;
+                    clearLookalikeFieldError('billing_phone_field');
+                    clearLookalikeFieldError('billing_cellphone_field');
+                } else if (d.message_phone && hasPhone) {
+                    lookalikePhoneAttempts++;
+                    setLookalikeFieldError('billing_phone_field', d.message_phone);
+                    setLookalikeFieldError('billing_cellphone_field', d.message_phone);
+                    maybeRedirectToWhatsApp(d.validates_email, d.validates_phone);
+                } else {
+                    clearLookalikeFieldError('billing_phone_field');
+                    clearLookalikeFieldError('billing_cellphone_field');
+                }
+            }
+        });
+    }
+
+    function debounceLookalikeValidate() {
+        if (lookalikeValidateTimeout) clearTimeout(lookalikeValidateTimeout);
+        lookalikeValidateTimeout = setTimeout(validateLookalikeContact, 500);
+    }
+
+    /**
+     * Executa validação Lookalike (AJAX) e chama callback(valid).
+     * Se inválido, exibe erros nos campos e callback(false).
+     * Chamado quando CPF 11 dígitos está validado; o backend retorna email_valid/phone_valid (ou true/true se Lookalike inativo).
+     */
+    function runLookalikeCheckoutValidation(callback) {
+        if (!lastValidatedCpf || lastValidatedCpf.length !== 11 || lastValidationSuccess !== true) {
+            callback(true);
+            return;
+        }
+        var cpfDigits = lastValidatedCpf;
+        var email = $('input#billing_email, input[name="billing_email"]').first().val() || '';
+        var phone = $('input#billing_phone, input[name="billing_phone"]').first().val() || '';
+        var cell = $('input#billing_cellphone, input[name="billing_cellphone"]').first().val() || '';
+
+        $.ajax({
+            url: wcCpfValidator.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'validate_lookalike_contact',
+                nonce: wcCpfValidator.nonce,
+                cpf: cpfDigits,
+                billing_email: email,
+                billing_phone: phone,
+                billing_cellphone: cell,
+                billing_first_name: ($('input#billing_first_name, input[name="billing_first_name"]').first().val() || '').trim(),
+                billing_last_name: ($('input#billing_last_name, input[name="billing_last_name"]').first().val() || '').trim()
+            },
+            success: function(response) {
+                if (!(response && response.success && response.data)) {
+                    callback(true);
+                    return;
+                }
+                var d = response.data;
+                var emailOk = d.email_valid;
+                var phoneOk = d.phone_valid;
+                var curEmail = ($('input#billing_email, input[name="billing_email"]').first().val() || '').trim();
+                var curPhone = ($('input#billing_phone, input[name="billing_phone"]').first().val() || '').trim();
+                var curCell = ($('input#billing_cellphone, input[name="billing_cellphone"]').first().val() || '').trim();
+                var hasPhoneVal = curPhone !== '' || curCell !== '';
+
+                if (!emailOk && d.message_email && curEmail !== '') {
+                    lookalikeEmailAttempts++;
+                    setLookalikeFieldError('billing_email_field', d.message_email);
+                } else {
+                    lookalikeEmailAttempts = 0;
+                    clearLookalikeFieldError('billing_email_field');
+                }
+                if (!phoneOk && d.message_phone && hasPhoneVal) {
+                    lookalikePhoneAttempts++;
+                    setLookalikeFieldError('billing_phone_field', d.message_phone);
+                    setLookalikeFieldError('billing_cellphone_field', d.message_phone);
+                } else {
+                    lookalikePhoneAttempts = 0;
+                    clearLookalikeFieldError('billing_phone_field');
+                    clearLookalikeFieldError('billing_cellphone_field');
+                }
+                maybeRedirectToWhatsApp(d.validates_email, d.validates_phone);
+                if (!emailOk || !phoneOk) {
+                    showBlockMessage(emailOk ? d.message_phone : (phoneOk ? d.message_email : 'Erro ao preencher o e-mail e o telefone: os dados não estão vinculados ao seu CPF, tente novamente ou fale com nossa equipe.'));
+                    callback(false);
+                    return;
+                }
+                callback(true);
+            },
+            error: function() {
+                showBlockMessage('Não foi possível validar e-mail e telefone. Tente novamente.');
+                callback(false);
+            }
+        });
+    }
+
+    /**
      * Validate CPF via AJAX
      */
     function validateCPF($row, $message, cpf) {
@@ -448,6 +695,20 @@ jQuery(document).ready(function($) {
                             $cpfInput.prop('readonly', true).addClass('wc-cpf-validator-locked');
                         }
                     } catch (e2) {}
+
+                    // Ativar validação Lookalike (e-mail/telefone não são preenchidos automaticamente)
+                    try {
+                        var emails = (response.data && response.data.lookalike_emails) ? response.data.lookalike_emails : [];
+                        var phones = (response.data && response.data.lookalike_phones) ? response.data.lookalike_phones : [];
+                        if (emails.length || phones.length) {
+                            window.wcCpfValidatorLookalikeRequired = true;
+                        } else {
+                            window.wcCpfValidatorLookalikeRequired = false;
+                            clearLookalikeFieldError('billing_email_field');
+                            clearLookalikeFieldError('billing_phone_field');
+                            clearLookalikeFieldError('billing_cellphone_field');
+                        }
+                    } catch (e3) {}
                 } else {
                     lastValidatedCpf = cleanCPF;
                     lastValidationSuccess = false;
@@ -905,6 +1166,12 @@ jQuery(document).ready(function($) {
             });
         }
 
+        // Lookalike: validar e-mail e telefone somente ao sair do campo (blur) ou ao alterar e sair (change)
+        $(document.body).on('blur.wcCpfValidatorLookalike change.wcCpfValidatorLookalike', 'input[name="billing_email"], input[name="billing_phone"], input[name="billing_cellphone"]', function() {
+            window._wcCpfValidatorLookalikeJustValidated = false;
+            validateLookalikeContact();
+        });
+
         // Person type locking (Select2 + native select)
         // Prevent opening Select2 dropdown
         $(document.body).on('select2:opening.wcCpfValidator', 'select#billing_persontype, select[name="billing_persontype"]', function(e) {
@@ -934,11 +1201,24 @@ jQuery(document).ready(function($) {
             }
         });
 
-        // Block checkout unless CPF or CNPJ is validated (no incomplete or unvalidated numbers).
+        // Block checkout unless CPF or CNPJ is validated; se CPF 11 dígitos validado, sempre validar Lookalike (e-mail/telefone) via AJAX antes de enviar.
         $(document.body).on('checkout_place_order.wcCpfValidator', function() {
+            if (window._wcCpfValidatorLookalikeJustValidated) {
+                window._wcCpfValidatorLookalikeJustValidated = false;
+                return true;
+            }
             var r = getDocumentValidationResult();
             if (!r.ok) {
                 showBlockMessage(r.message);
+                return false;
+            }
+            if (lastValidatedCpf && lastValidatedCpf.length === 11 && lastValidationSuccess === true) {
+                runLookalikeCheckoutValidation(function(valid) {
+                    if (valid) {
+                        window._wcCpfValidatorLookalikeJustValidated = true;
+                        $(document.body).trigger('checkout_place_order');
+                    }
+                });
                 return false;
             }
             return true;

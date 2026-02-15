@@ -21,9 +21,6 @@ class WC_CPF_Validator_Settings {
     }
     
     private function __construct() {
-        // Register settings section in both tabs:
-        // - checkout (legacy / direct URL)
-        // - advanced (visible in current WooCommerce UI)
         add_filter( 'woocommerce_get_sections_checkout', array( $this, 'add_section' ) );
         add_filter( 'woocommerce_get_settings_checkout', array( $this, 'add_settings' ), 10, 2 );
 
@@ -31,17 +28,11 @@ class WC_CPF_Validator_Settings {
         add_filter( 'woocommerce_get_settings_advanced', array( $this, 'add_settings' ), 10, 2 );
     }
     
-    /**
-     * Add CPF Validator section to WooCommerce Checkout settings
-     */
     public function add_section( $sections ) {
         $sections['cpf_validator'] = __( 'Validação CPF', 'wc-cpf-validator' );
         return $sections;
     }
     
-    /**
-     * Add settings fields
-     */
     public function add_settings( $settings, $current_section ) {
         if ( 'cpf_validator' !== $current_section ) {
             return $settings;
@@ -77,7 +68,6 @@ class WC_CPF_Validator_Settings {
                 'desc'    => __( 'Escolha qual serviço será usado para consultar/validar o CNPJ. Observação: no momento, apenas CPF.CNPJ suporta CNPJ.', 'wc-cpf-validator' ),
                 'id'      => 'wc_cpf_validator_cnpj_api_provider',
                 'type'    => 'select',
-                // Default "cpfcnpj" para não quebrar cenários em que CPF usa CPFHub e CNPJ usa CPF.CNPJ
                 'default' => 'cpfcnpj',
                 'options' => array(
                     'cpfcnpj' => __( 'CPF.CNPJ (cpfcnpj.com.br)', 'wc-cpf-validator' ),
@@ -166,6 +156,22 @@ class WC_CPF_Validator_Settings {
                 'type'    => 'checkbox'
             ),
             array(
+                'title'   => __( 'Validar e-mail e telefone (CPF Lookalike)', 'wc-cpf-validator' ),
+                'desc'    => __( 'Exige que o e-mail e o telefone informados correspondam aos dados do CPF (pacote CPF Lookalike - ID 21). Após 3 tentativas incorretas em cada campo, redireciona para o WhatsApp.', 'wc-cpf-validator' ),
+                'id'      => 'wc_cpf_validator_lookalike_validate_contact',
+                'default' => 'no',
+                'type'    => 'checkbox'
+            ),
+            array(
+                'title'   => __( 'URL do WhatsApp (redirecionamento)', 'wc-cpf-validator' ),
+                'desc'    => __( 'Link para redirecionar o comprador após 3 tentativas incorretas de e-mail ou telefone (ex: https://wa.me/5511999999999). Obrigatório para ativar o redirecionamento.', 'wc-cpf-validator' ),
+                'id'      => 'wc_cpf_validator_lookalike_whatsapp_url',
+                'type'    => 'text',
+                'default' => '',
+                'placeholder' => 'https://wa.me/5511999999999',
+                'css'     => 'width: 400px;'
+            ),
+            array(
                 'title'   => __( 'Posição do Campo', 'wc-cpf-validator' ),
                 'desc'    => __( 'Escolha onde o campo CPF deve aparecer no formulário de checkout', 'wc-cpf-validator' ),
                 'id'      => 'wc_cpf_validator_field_position',
@@ -217,9 +223,6 @@ class WC_CPF_Validator_Settings {
         return $custom_settings;
     }
     
-    /**
-     * Get setting value
-     */
     public static function get_option( $key, $default = '' ) {
         return get_option( 'wc_cpf_validator_' . $key, $default );
     }
